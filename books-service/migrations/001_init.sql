@@ -9,12 +9,12 @@ CREATE TABLE IF NOT EXISTS books (
     description TEXT,
     isbn VARCHAR(20),
     published_year INTEGER,
-    created_by UUID NOT NULL,  -- References user in Users Service
+    user_id UUID NOT NULL,  -- References user in Users Service
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_books_created_by ON books(created_by);
+CREATE INDEX idx_books_user_id ON books(user_id);
 CREATE INDEX idx_books_title ON books(title);
 CREATE INDEX idx_books_author ON books(author);
 CREATE INDEX idx_books_created_at ON books(created_at);

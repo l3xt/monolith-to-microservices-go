@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./users-service/migrations:/docker-entrypoint-initdb.d:ro
       - users_postgres_data:/var/lib/postgresql/data
@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - ./books-service/migrations:/docker-entrypoint-initdb.d:ro
       - books_postgres_data:/var/lib/postgresql/data
