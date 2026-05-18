@@ -57,6 +57,10 @@ func (s *UserService) GetByID(ctx context.Context, userID uuid.UUID) (*domain.Us
 	return s.repo.GetByID(ctx, userID)
 }
 
+func (s *UserService) GetByIDs(ctx context.Context, userIDs []uuid.UUID) ([]domain.User, error) {
+	return s.repo.GetByIDs(ctx, userIDs)
+}
+
 func (s *UserService) Update(ctx context.Context, userID uuid.UUID, input *domain.UpdateUserInput) (*domain.User, error) {
 	// Ищем пользователя по ID
 	user, err := s.repo.GetByID(ctx, userID)

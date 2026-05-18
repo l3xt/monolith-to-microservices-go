@@ -35,7 +35,7 @@ func NewBookRepository(db *database.PostgresDB) *BookRepository {
 func (r *BookRepository) Create(ctx context.Context, book *domain.Book) error {
 	const query = `
 		INSERT INTO books (title, author, description, isbn, published_year, user_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+ 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -165,7 +165,7 @@ func (r *BookRepository) List(ctx context.Context, filter *domain.BookFilter) ([
 }
 
 func (r *BookRepository) ListByUser(ctx context.Context, userID uuid.UUID, filter *domain.BookFilter) ([]domain.Book, int, error) {
-column := pgx.Identifier{allowedSortFields[filter.Sort]}.Sanitize()
+	column := pgx.Identifier{allowedSortFields[filter.Sort]}.Sanitize()
 	direction := "ASC"
 	if strings.ToUpper(filter.Order) == "DESC" {
 		direction = "DESC"
@@ -186,7 +186,7 @@ column := pgx.Identifier{allowedSortFields[filter.Sort]}.Sanitize()
 			COUNT(r.id) AS reviews_count
 		FROM books b
 		LEFT JOIN reviews r ON r.book_id = b.id
-		WHERE b.user_id = $1 AND $2 = '' OR b.title ILIKE $2 OR b.author ILIKE $2
+		WHERE b.user_id = $1 AND ($2 = '' OR b.title ILIKE $2 OR b.author ILIKE $2)
 		GROUP BY b.id
 		ORDER BY %s %s
 		LIMIT $3 OFFSET $4

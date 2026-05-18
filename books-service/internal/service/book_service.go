@@ -37,7 +37,6 @@ func (s *BookService) Create(ctx context.Context, userID uuid.UUID, input *domai
 		ISBN:          input.ISBN,
 		PublishedYear: input.PublishedYear,
 		UserID:        userID,
-		AverageRating: 0,
 	}
 
 	err := s.bookRepo.Create(ctx, book)
@@ -94,6 +93,22 @@ func (s *BookService) Update(ctx context.Context, userID, bookID uuid.UUID, req 
 	// Проверяем владельца книги
 	if book.UserID != userID {
 		return nil, domain.ErrNotBookOwner
+	}
+
+	if req.Title != nil {
+		book.Title = *req.Title
+	}
+	if req.Author != nil {
+		book.Author = *req.Author
+	}
+	if req.Description != nil {
+		book.Description = req.Description
+	}
+	if req.ISBN != nil {
+		book.ISBN = req.ISBN
+	}
+	if req.PublishedYear != nil {
+		book.PublishedYear = req.PublishedYear
 	}
 
 	if err := s.bookRepo.Update(ctx, book); err != nil {

@@ -12,7 +12,14 @@ var (
 	ErrTokenMalformed   = errors.New("malformed token")
 )
 
+// UserClaims содержит полезную нагрузку (payload) из токена
+type UserClaims struct {
+	UserID   uuid.UUID
+	Username string
+	ExpiresAt int64
+}
+
 type TokenManager interface {
 	GenerateToken(userID uuid.UUID, username string) (string, error)
-	Validate(tokenStr string) (uuid.UUID, error)
+	Validate(tokenStr string) (*UserClaims, error)
 }

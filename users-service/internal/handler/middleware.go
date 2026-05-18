@@ -32,7 +32,7 @@ func AuthMiddleware(tokenManager service.TokenManager) func(http.Handler) http.H
 				return
 			}
 
-			userID, err := tokenManager.Validate(parts[1])
+			claims, err := tokenManager.Validate(parts[1])
 			if err != nil {
 				log.Warn("invalid or expired token")
 				writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or expired token", nil)
@@ -40,11 +40,11 @@ func AuthMiddleware(tokenManager service.TokenManager) func(http.Handler) http.H
 			}
 
 			// Пробрасываем через контекст
-			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 
 			// Кладем user_id в логгер
 			ctx = applogger.WithContext(ctx, log.With(
-				slog.String("user_id", userID.String()),
+				slog.String("user_id", claims.UserID.String()),
 			))
 
 			next.ServeHTTP(w, r.WithContext(ctx))

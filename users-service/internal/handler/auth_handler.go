@@ -79,7 +79,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.AuthResponse{
-		TokenType: "Bearer",
+		TokenType:   "Bearer",
 		User:        mapper.ToUserPublic(user),
 		AccessToken: token,
 	}

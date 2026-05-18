@@ -4,8 +4,8 @@ import (
 	"bookshelf/users-service/internal/config"
 	"bookshelf/users-service/internal/database"
 	"bookshelf/users-service/internal/handler"
-	applogger "bookshelf/users-service/internal/logger"
 	appjwt "bookshelf/users-service/internal/lib/jwt"
+	applogger "bookshelf/users-service/internal/logger"
 	"bookshelf/users-service/internal/repository"
 	"bookshelf/users-service/internal/service"
 	"context"
@@ -75,8 +75,9 @@ func run(ctx context.Context, log *slog.Logger) error {
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
 	systemHandler := handler.NewSystemHandler(db)
+	internalHandler := handler.NewInternalHandler(jwtManager, userService)
 
-	router := newRouter(log, authHandler, userHandler, systemHandler, jwtManager)
+	router := newRouter(log, authHandler, userHandler, systemHandler, internalHandler, jwtManager)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -115,7 +116,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.UserHandler, systemH *handler.SystemHandler, tokenManager service.TokenManager) *chi.Mux {
+func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.UserHandler, systemH *handler.SystemHandler, internalH *handler.InternalHandler, tokenManager service.TokenManager) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
@@ -155,6 +156,11 @@ func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.U
 			r.Put("/users/me", userH.UpdateCurrentUser)
 		})
 	})
-	
+
+	r.Route("/internal/v1", func(r chi.Router) {
+		r.Post("/auth/verify", internalH.VerifyToken)
+		r.Post("/users/batch", internalH.GetUsersByIDs)
+	})
+
 	return r
 }

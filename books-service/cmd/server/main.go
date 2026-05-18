@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bookshelf/books-service/internal/client"
 	"bookshelf/books-service/internal/config"
 	"bookshelf/books-service/internal/database"
 	"bookshelf/books-service/internal/handler"
@@ -16,6 +17,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"bookshelf/pkg/httpclient"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -64,7 +67,6 @@ func run(ctx context.Context, log *slog.Logger) error {
 	bookRepo := repository.NewBookRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 
-
 	// Инициализация бизнес-логики
 	bookService := service.NewBookService(bookRepo)
 	reviewService := service.NewReviewService(bookRepo, reviewRepo)
@@ -74,7 +76,11 @@ func run(ctx context.Context, log *slog.Logger) error {
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	systemHandler := handler.NewSystemHandler(db)
 
-	router := newRouter(log, bookHandler, reviewHandler, systemHandler)
+	// Инициализация HTTP-клиентов
+	baseHTTPClient := httpclient.NewClient("http://localhost:8081", 5*time.Second) // В идеале URL стоит вынести в config
+	authClient := client.NewClient(baseHTTPClient)
+
+	router := newRouter(log, bookHandler, reviewHandler, systemHandler, authClient)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -113,7 +119,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler) *chi.Mux {
+func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler, tv handler.TokenValidator) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
@@ -124,9 +130,6 @@ func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
-
-	// MIDDLEWARE
-	r.Use(handler.LoggingMiddleware(logger))
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -149,7 +152,7 @@ func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler
 
 		// Защищенные
 		r.Group(func(r chi.Router) {
-			// r.Use(handler.AuthMiddleware(tokenManager))
+			r.Use(handler.AuthMiddleware(tv))
 
 			r.Post("/books", bookH.CreateBook)
 			r.Put("/books/{bookId}", bookH.UpdateBook)
@@ -160,6 +163,6 @@ func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler
 			r.Delete("/reviews/{reviewId}", reviewH.DeleteReview)
 		})
 	})
-	
+
 	return r
 }

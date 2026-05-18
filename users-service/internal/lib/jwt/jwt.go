@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"bookshelf/users-service/internal/service"
 	"errors"
 	"fmt"
 	"time"
@@ -44,27 +45,36 @@ func (m *JWTManager) GenerateToken(userID uuid.UUID, username string) (string, e
 }
 
 // Валидация токена
-func (m *JWTManager) Validate(tokenStr string) (uuid.UUID, error) {
+func (m *JWTManager) Validate(tokenStr string) (*service.UserClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenStr,
 		&Claims{},
 		func(t *jwt.Token) (any, error) {
 			// проверка алгоритма
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return uuid.Nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
 			return m.secretKey, nil
 		},
 	)
 	if err != nil {
-		return uuid.Nil, err
+		return nil, err
 	}
 
 	// Распаковываем интерфейс в нашу структуру
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return uuid.Nil, ErrInvalidTokenClaims
+		return nil, ErrInvalidTokenClaims
 	}
 
-	return claims.UserID, nil
+	var exp int64
+	if claims.ExpiresAt != nil {
+		exp = claims.ExpiresAt.Unix()
+	}
+
+	return &service.UserClaims{
+		UserID:    claims.UserID,
+		Username:  claims.Username,
+		ExpiresAt: exp,
+	}, nil
 }
