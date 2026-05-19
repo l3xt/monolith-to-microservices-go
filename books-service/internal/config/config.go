@@ -10,7 +10,7 @@ import (
 var (
 	ErrLoadServerPort = errors.New("failed to load port value")
 	ErrLoadDBUrl      = errors.New("failed to load db url")
-	ERrLoadAuthServiceURL = errors.New("failed to load auth service url")
+	ErrLoadAuthServiceURL = errors.New("failed to load auth service url")
 )
 
 type Config struct {
@@ -34,7 +34,7 @@ func Load() (*Config, error) {
 
 	authService, ok := os.LookupEnv("AUTH_SERVICE_URL")
 	if !ok {
-		return nil, ERrLoadAuthServiceURL
+		return nil, ErrLoadAuthServiceURL
 	}
 
 	return &Config{

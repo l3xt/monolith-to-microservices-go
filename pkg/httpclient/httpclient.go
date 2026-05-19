@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -91,7 +92,12 @@ func (c *Client) do(req *http.Request, target any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		bodyStr := string(bodyBytes)
+		if err != nil {
+			bodyStr = "failed to read error body"
+		}
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, bodyStr)
 	}
 
 	if target != nil {

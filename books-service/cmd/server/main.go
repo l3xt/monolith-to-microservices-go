@@ -76,18 +76,18 @@ func run(ctx context.Context, log *slog.Logger) error {
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	systemHandler := handler.NewSystemHandler(db)
 
-	// Инициализация HTTP-клиентов
-	baseHTTPClient := httpclient.NewClient("http://localhost:8081", 5*time.Second) // В идеале URL стоит вынести в config
+	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
 	authClient := client.NewClient(baseHTTPClient)
 
-	router := newRouter(log, bookHandler, reviewHandler, systemHandler, authClient)
+	router := newRouter(bookHandler, reviewHandler, systemHandler, authClient)
 
 	server := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second, // от Slowloris атак
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	serverErrors := make(chan error, 1)
@@ -119,7 +119,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-func newRouter(logger *slog.Logger, bookH *handler.BookHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler, tv handler.TokenValidator) *chi.Mux {
+func newRouter(bookH *handler.BookHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler, tv handler.TokenValidator) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{

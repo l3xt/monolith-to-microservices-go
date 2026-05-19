@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bookshelf/books-service/internal/domain"
 	"bookshelf/books-service/internal/transport/http/dto"
 	"bookshelf/pkg/httpclient"
 	"context"
@@ -24,7 +25,11 @@ func (c *Client) VerifyToken(ctx context.Context, req *dto.TokenRequest) (*dto.V
 
 	err := c.http.Post(ctx, "/internal/v1/auth/verify", req, &resp)
 	if err != nil {
-		return nil, fmt.Errorf("auth client: verify failed: %w", err)
+		// Оборачиваем в нашу доменную ошибку
+		if ctx.Err() != nil { 
+			return nil, ctx.Err() 
+		}
+		return nil, fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
 	}
 	return &resp, nil
 }
@@ -35,7 +40,11 @@ func (c *Client) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) ([]dto.User
 
 	err := c.http.Post(ctx, "/internal/v1/users/batch", req, &resp)
 	if err != nil {
-		return nil, fmt.Errorf("auth client: get users failed: %w", err)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		// Оборачиваем в нашу доменную ошибку
+		return nil, fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
 	}
 	return resp.Users, nil
 }

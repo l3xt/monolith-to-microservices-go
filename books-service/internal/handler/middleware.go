@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"bookshelf/books-service/internal/domain"
 	applogger "bookshelf/books-service/internal/logger"
 	"bookshelf/books-service/internal/transport/http/dto"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -30,6 +32,12 @@ func AuthMiddleware(validator TokenValidator) func(http.Handler) http.Handler {
 			// Идем в users-service по сети
 			resp, err := validator.VerifyToken(r.Context(), &dto.TokenRequest{Token: parts[1]})
 			if err != nil {
+				if errors.Is(err, domain.ErrAuthServiceUnavailable) {
+					log.Error("auth service is down", slog.Any("error", err))
+					writeError(w, r, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Authentication service is temporarily unavailable", nil)
+					return
+				}
+
 				log.Warn("invalid token", slog.Any("error", err))
 				writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or expired token", nil)
 				return
