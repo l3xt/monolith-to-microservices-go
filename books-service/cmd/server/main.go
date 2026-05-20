@@ -77,7 +77,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	systemHandler := handler.NewSystemHandler(db)
 
 	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
-	authClient := client.NewClient(baseHTTPClient)
+	authClient := client.NewAuthClient(baseHTTPClient, cfg.ServiceKey)
 
 	router := newRouter(bookHandler, reviewHandler, systemHandler, authClient)
 

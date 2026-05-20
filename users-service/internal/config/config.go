@@ -11,12 +11,14 @@ var (
 	ErrLoadServerPort = errors.New("failed to load port value")
 	ErrLoadDBUrl      = errors.New("failed to load db url")
 	ErrLoadJWTSecret  = errors.New("failed to load jwt secret key")
+	ErrLoadServiceKey = errors.New("failed to load service key")
 )
 
 type Config struct {
 	Port        string
 	DatabaseURL string
 	SecretKey   []byte
+	ServiceKey  string
 }
 
 func Load() (*Config, error) {
@@ -37,9 +39,15 @@ func Load() (*Config, error) {
 		return nil, ErrLoadJWTSecret
 	}
 
+	serviceKey, ok := os.LookupEnv("SERVICE_KEY")
+	if !ok {
+		return nil, ErrLoadServiceKey
+	}
+
 	return &Config{
 		Port:        port,
 		DatabaseURL: dbUrl,
 		SecretKey:   []byte(secretKey),
+		ServiceKey:  serviceKey,
 	}, nil
 }

@@ -78,3 +78,25 @@ func LoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+func ServiceKeyMiddleware(expectedKey string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log := applogger.FromContext(r.Context())
+
+			key := r.Header.Get("X-Service-Key")
+			if key == "" {
+				log.Warn("service key is missing")
+				writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Service key required", nil)
+				return
+			}
+			if key != expectedKey {
+				log.Warn("invalid service key", slog.String("expected_key", expectedKey), slog.String("provided_key", key))
+				writeError(w, r, http.StatusForbidden, "FORBIDDEN", "Invalid service key", nil)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}

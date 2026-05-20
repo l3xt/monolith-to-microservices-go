@@ -77,7 +77,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	systemHandler := handler.NewSystemHandler(db)
 	internalHandler := handler.NewInternalHandler(jwtManager, userService)
 
-	router := newRouter(log, authHandler, userHandler, systemHandler, internalHandler, jwtManager)
+	router := newRouter(log, authHandler, userHandler, systemHandler, internalHandler, jwtManager, cfg.ServiceKey)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -116,7 +116,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.UserHandler, systemH *handler.SystemHandler, internalH *handler.InternalHandler, tokenManager service.TokenManager) *chi.Mux {
+func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.UserHandler, systemH *handler.SystemHandler, internalH *handler.InternalHandler, tokenManager service.TokenManager, serviceKey string) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
@@ -158,6 +158,8 @@ func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.U
 	})
 
 	r.Route("/internal/v1", func(r chi.Router) {
+		r.Use(handler.ServiceKeyMiddleware(serviceKey))
+
 		r.Post("/auth/verify", internalH.VerifyToken)
 		r.Post("/users/batch", internalH.GetUsersByIDs)
 	})

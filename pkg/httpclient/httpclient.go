@@ -38,7 +38,7 @@ func (c *Client) Get(ctx context.Context, path string, target any) error {
 }
 
 // Post выполняет POST-запрос с JSON телом и декодирует ответ в target
-func (c *Client) Post(ctx context.Context, path string, body, target any) error {
+func (c *Client) Post(ctx context.Context, path string, body, target any, headers ...map[string]string) error {
 	url := c.baseURL + path
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -52,11 +52,17 @@ func (c *Client) Post(ctx context.Context, path string, body, target any) error 
 
 	req.Header.Set("Content-Type", "application/json")
 
+	if len(headers) > 0 && headers[0] != nil {
+		for k, v := range headers[0] {
+			req.Header.Set(k, v)
+		}
+	}
+
 	return c.do(req, target)
 }
 
 // Put выполняет PUT-запрос с JSON телом и декодирует ответ в target
-func (c *Client) Put(ctx context.Context, path string, body, target any) error {
+func (c *Client) Put(ctx context.Context, path string, body, target any, headers ...map[string]string) error {
 	url := c.baseURL + path
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -69,6 +75,11 @@ func (c *Client) Put(ctx context.Context, path string, body, target any) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if len(headers) > 0 && headers[0] != nil {
+		for k, v := range headers[0] {
+			req.Header.Set(k, v)
+		}
+	}
 
 	return c.do(req, target)
 }
