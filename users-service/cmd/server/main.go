@@ -74,7 +74,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	// Инициализация транспортного слоя
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
-	systemHandler := handler.NewSystemHandler(db)
+	systemHandler := handler.NewSystemHandler(cfg.Version,db)
 	internalHandler := handler.NewInternalHandler(jwtManager, userService)
 
 	router := newRouter(log, authHandler, userHandler, systemHandler, internalHandler, jwtManager, cfg.ServiceKey)
@@ -140,7 +140,7 @@ func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.U
 	r.Use(middleware.Timeout(DefaultTimeout))
 
 	// ENDPOINTS
-	r.Get("/ready", systemH.Health)
+	r.Get("/health", systemH.Health)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Публичные

@@ -58,3 +58,16 @@ func (c *AuthClient) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) ([]dto.
 	}
 	return resp.Users, nil
 }
+
+func (c *AuthClient) HealthCheck(ctx context.Context) error {
+	var resp dto.HealthResponse
+
+	err := c.http.Get(ctx, "/health", &resp)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
+	}
+	return nil
+}

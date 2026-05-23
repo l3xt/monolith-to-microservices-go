@@ -29,11 +29,13 @@ var (
 )
 
 type SystemHandler struct {
-	db domain.Pinger
+	version string
+	db      domain.Pinger
+	auth    domain.HealthChecker
 }
 
-func NewSystemHandler(db domain.Pinger) *SystemHandler {
-	return &SystemHandler{db: db}
+func NewSystemHandler(ver string, db domain.Pinger, auth domain.HealthChecker) *SystemHandler {
+	return &SystemHandler{version: ver, db: db, auth: auth}
 }
 
 // хелпер функции
@@ -114,18 +116,53 @@ func getIntParam(r *http.Request, paramName string) (int, error) {
 }
 
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
-	dbStatus := dto.StatusReady
+	log := applogger.FromContext(r.Context())
 
-	if err := h.db.Ping(r.Context()); err != nil {
+	generalStatus := dto.StatusReady
+	dbStatus := dto.StatusReady
+	authStatus := dto.StatusReady
+	var dbError, authError string
+
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	startDB := time.Now()
+	if err := h.db.Ping(ctx); err != nil {
+		log.Error("health check: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
+		dbError = "database connection failed"
+	}
+	dbDuration := time.Since(startDB)
+
+	startAuth := time.Now()
+	if err := h.auth.HealthCheck(ctx); err != nil {
+		log.Error("health check: auth service failed", slog.Any("error", err))
+		authStatus = dto.StatusError
+		authError = "authentication service failed"
+	}
+	authDuration := time.Since(startAuth)
+
+	if dbStatus == dto.StatusError || authStatus == dto.StatusError {
+		generalStatus = dto.StatusError
 	}
 
 	resp := dto.HealthResponse{
-		Status:    dto.StatusReady,
-		Version:   "1.0.0",
+		Status:    generalStatus,
+		Service:   "books-service",
+		Version:   h.version,
 		Timestamp: time.Now(),
-		Checks: dto.CheckList{
-			Database: dbStatus,
+		Checks: map[string]dto.Check{
+			"database": {
+				Status:   dbStatus,
+				Duration: dbDuration.String(),
+				Error:    dbError,
+			},
+			"authentication": {
+				Status:   authStatus,
+				Duration: authDuration.String(),
+				Error:    authError,
+			},
 		},
 	}
 

@@ -33,16 +33,19 @@ type ErrorDetail struct {
 	Message string `json:"message"`
 }
 
-// health и ready респонсы
+// Health
 type HealthResponse struct {
-	Status    ReadyStatus `json:"status"`
-	Version   string      `json:"version"`
-	Timestamp time.Time   `json:"timestamp"`
-	Checks    CheckList   `json:"checks"`
+	Status    ReadyStatus      `json:"status"`
+	Service   string           `json:"service"`
+	Version   string           `json:"version"`
+	Checks    map[string]Check `json:"checks"`
+	Timestamp time.Time        `json:"timestamp"`
 }
 
-type CheckList struct {
-	Database ReadyStatus `json:"database"`
+type Check struct {
+	Status   ReadyStatus `json:"status"`
+	Duration string      `json:"duration"`
+	Error    string      `json:"error,omitempty"`
 }
 
 func NewPagination(page, limit, total int) *Pagination {

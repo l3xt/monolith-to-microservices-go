@@ -71,13 +71,13 @@ func run(ctx context.Context, log *slog.Logger) error {
 	bookService := service.NewBookService(bookRepo)
 	reviewService := service.NewReviewService(bookRepo, reviewRepo)
 
+	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
+	authClient := client.NewAuthClient(baseHTTPClient, cfg.ServiceKey)
+
 	// Инициализация транспортного слоя
 	bookHandler := handler.NewBookHandler(bookService)
 	reviewHandler := handler.NewReviewHandler(reviewService)
-	systemHandler := handler.NewSystemHandler(db)
-
-	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
-	authClient := client.NewAuthClient(baseHTTPClient, cfg.ServiceKey)
+	systemHandler := handler.NewSystemHandler(cfg.Version, db, authClient)
 
 	router := newRouter(bookHandler, reviewHandler, systemHandler, authClient)
 
@@ -140,7 +140,7 @@ func newRouter(bookH *handler.BookHandler, reviewH *handler.ReviewHandler, syste
 	r.Use(middleware.Timeout(DefaultTimeout))
 
 	// ENDPOINTS
-	r.Get("/ready", systemH.Health)
+	r.Get("/health", systemH.Health)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Публичные

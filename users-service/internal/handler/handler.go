@@ -29,11 +29,12 @@ var (
 )
 
 type SystemHandler struct {
-	db domain.Pinger
+	version string
+	db      domain.Pinger
 }
 
-func NewSystemHandler(db domain.Pinger) *SystemHandler {
-	return &SystemHandler{db: db}
+func NewSystemHandler(ver string, db domain.Pinger) *SystemHandler {
+	return &SystemHandler{version: ver, db: db}
 }
 
 // хелпер функции
@@ -114,18 +115,39 @@ func getIntParam(r *http.Request, paramName string) (int, error) {
 }
 
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
+	log := applogger.FromContext(r.Context())
+	
+	generalStatus := dto.StatusReady
 	dbStatus := dto.StatusReady
+	var dbError string
 
-	if err := h.db.Ping(r.Context()); err != nil {
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	startDB := time.Now()
+	if err := h.db.Ping(ctx); err != nil {
+		log.Error("health check: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
+		dbError = "database connection failed"
+	}
+	dbDuration := time.Since(startDB)
+
+	if dbStatus == dto.StatusError {
+		generalStatus = dto.StatusError
 	}
 
 	resp := dto.HealthResponse{
-		Status:    dto.StatusReady,
-		Version:   "1.0.0",
+		Status:    generalStatus,
+		Service:   "users-service",
+		Version:   h.version,
 		Timestamp: time.Now(),
-		Checks: dto.CheckList{
-			Database: dbStatus,
+		Checks: map[string]dto.Check{
+			"database": {
+				Status:   dbStatus,
+				Duration: dbDuration.String(),
+				Error:    dbError,
+			},
 		},
 	}
 

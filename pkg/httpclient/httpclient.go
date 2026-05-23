@@ -34,8 +34,8 @@ func NewClient(baseURL string, timeout time.Duration, opts ...Options) *Client {
 			Timeout: timeout,
 		},
 		baseURL:    baseURL,
-		maxRetries: 5,
-		retryDelay: 300 * time.Millisecond,
+		maxRetries: 3,
+		retryDelay: 100 * time.Millisecond,
 	}
 
 	for _, opt := range opts {

@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	ErrLoadVersion        = errors.New("failed to load version")
 	ErrLoadServerPort     = errors.New("failed to load port value")
 	ErrLoadDBUrl          = errors.New("failed to load db url")
 	ErrLoadAuthServiceURL = errors.New("failed to load auth service url")
@@ -15,6 +16,7 @@ var (
 )
 
 type Config struct {
+	Version        string
 	Port           string
 	DatabaseURL    string
 	AuthServiceURL string
@@ -23,6 +25,11 @@ type Config struct {
 
 func Load() (*Config, error) {
 	_ = godotenv.Load()
+
+	version, ok := os.LookupEnv("VERSION")
+	if !ok {
+		return nil, ErrLoadVersion
+	}
 
 	port, ok := os.LookupEnv("PORT")
 	if !ok {
@@ -45,6 +52,7 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
+		Version:        version,
 		Port:           port,
 		DatabaseURL:    dbUrl,
 		AuthServiceURL: authService,
