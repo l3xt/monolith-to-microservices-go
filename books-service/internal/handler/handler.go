@@ -120,8 +120,7 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 
 	generalStatus := dto.StatusReady
 	dbStatus := dto.StatusReady
-	authStatus := dto.StatusReady
-	var dbError, authError string
+	var dbError string
 
 	// Ограничиваем время выполнения
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -135,15 +134,7 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 	dbDuration := time.Since(startDB)
 
-	startAuth := time.Now()
-	if err := h.auth.HealthCheck(ctx); err != nil {
-		log.Error("health check: auth service failed", slog.Any("error", err))
-		authStatus = dto.StatusError
-		authError = "authentication service failed"
-	}
-	authDuration := time.Since(startAuth)
-
-	if dbStatus == dto.StatusError || authStatus == dto.StatusError {
+	if dbStatus == dto.StatusError {
 		generalStatus = dto.StatusError
 	}
 
@@ -151,6 +142,57 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 		Status:    generalStatus,
 		Service:   "books-service",
 		Version:   h.version,
+		Timestamp: time.Now(),
+		Checks: map[string]dto.Check{
+			"database": {
+				Status:   dbStatus,
+				Duration: dbDuration.String(),
+				Error:    dbError,
+			},
+		},
+	}
+
+	statusCode := http.StatusOK
+	if dbStatus != dto.StatusReady {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	writeJSON(w, statusCode, resp)
+}
+
+func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
+	log := applogger.FromContext(r.Context())
+
+	isReady := true
+	dbStatus := dto.StatusReady
+	authStatus := dto.StatusReady
+	var dbError, authError string
+
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	startDB := time.Now()
+	if err := h.db.Ping(ctx); err != nil {
+		log.Error("readiness check: database ping failed", slog.Any("error", err))
+		dbStatus = dto.StatusError
+		dbError = "database connection failed"
+		isReady = false
+	}
+	dbDuration := time.Since(startDB)
+
+	startAuth := time.Now()
+	if err := h.auth.HealthCheck(ctx); err != nil {
+		log.Error("readiness check: auth service failed", slog.Any("error", err))
+		authStatus = dto.StatusError
+		authError = "authentication service failed"
+		isReady = false
+	}
+	authDuration := time.Since(startAuth)
+
+	resp := dto.ReadyResponse{
+		Ready:     isReady,
+		Service:   "books-service",
 		Timestamp: time.Now(),
 		Checks: map[string]dto.Check{
 			"database": {
@@ -167,7 +209,7 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 
 	statusCode := http.StatusOK
-	if dbStatus != dto.StatusReady {
+	if !isReady {
 		statusCode = http.StatusServiceUnavailable
 	}
 

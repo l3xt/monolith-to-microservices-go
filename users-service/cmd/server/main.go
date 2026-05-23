@@ -141,6 +141,7 @@ func newRouter(logger *slog.Logger, authH *handler.AuthHandler, userH *handler.U
 
 	// ENDPOINTS
 	r.Get("/health", systemH.Health)
+	r.Get("/ready", systemH.Ready)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Публичные

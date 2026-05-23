@@ -114,24 +114,31 @@ func getIntParam(r *http.Request, paramName string) (int, error) {
 	return strconv.Atoi(paramStr)
 }
 
-func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
-	log := applogger.FromContext(r.Context())
-	
-	generalStatus := dto.StatusReady
-	dbStatus := dto.StatusReady
-	var dbError string
-
+func (h *SystemHandler) checkDatabase(ctx context.Context) (time.Duration, error) {
 	// Ограничиваем время выполнения
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	startDB := time.Now()
 	if err := h.db.Ping(ctx); err != nil {
+		return time.Since(startDB), err
+	}
+	return time.Since(startDB), nil
+}
+
+func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
+	log := applogger.FromContext(r.Context())
+
+	generalStatus := dto.StatusReady
+	dbStatus := dto.StatusReady
+	var dbError string
+
+	dbDuration, err := h.checkDatabase(r.Context())
+	if err != nil {
 		log.Error("health check: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
 		dbError = "database connection failed"
 	}
-	dbDuration := time.Since(startDB)
 
 	if dbStatus == dto.StatusError {
 		generalStatus = dto.StatusError
@@ -153,6 +160,42 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 
 	statusCode := http.StatusOK
 	if dbStatus != dto.StatusReady {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	writeJSON(w, statusCode, resp)
+}
+
+func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
+	log := applogger.FromContext(r.Context())
+
+	isReady := true
+	dbStatus := dto.StatusReady
+	var dbError string
+
+	dbDuration, err := h.checkDatabase(r.Context())
+	if err != nil {
+		log.Error("readiness check: database ping failed", slog.Any("error", err))
+		dbStatus = dto.StatusError
+		dbError = "database connection failed"
+		isReady = false
+	}
+
+	resp := dto.ReadyResponse{
+		Ready:     isReady,
+		Service:   "users-service",
+		Timestamp: time.Now(),
+		Checks: map[string]dto.Check{
+			"database": {
+				Status:   dbStatus,
+				Duration: dbDuration.String(),
+				Error:    dbError,
+			},
+		},
+	}
+
+	statusCode := http.StatusOK
+	if !isReady {
 		statusCode = http.StatusServiceUnavailable
 	}
 

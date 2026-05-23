@@ -32,6 +32,14 @@ type HealthResponse struct {
 	Timestamp time.Time        `json:"timestamp"`
 }
 
+// Ready
+type ReadyResponse struct {
+	Ready     bool             `json:"ready"`
+	Service   string           `json:"service"`
+	Checks    map[string]Check `json:"checks"`
+	Timestamp time.Time        `json:"timestamp"`
+}
+
 type Check struct {
 	Status   ReadyStatus `json:"status"`
 	Duration string      `json:"duration"`

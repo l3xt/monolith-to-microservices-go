@@ -141,6 +141,7 @@ func newRouter(bookH *handler.BookHandler, reviewH *handler.ReviewHandler, syste
 
 	// ENDPOINTS
 	r.Get("/health", systemH.Health)
+	r.Get("/ready", systemH.Ready)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Публичные
