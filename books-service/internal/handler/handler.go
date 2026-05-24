@@ -115,6 +115,31 @@ func getIntParam(r *http.Request, paramName string) (int, error) {
 	return strconv.Atoi(paramStr)
 }
 
+func (h *SystemHandler) checkDatabase(ctx context.Context) (time.Duration, error) {
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	startDB := time.Now()
+	if err := h.db.Ping(ctx); err != nil {
+		return time.Since(startDB), err
+	}
+	return time.Since(startDB), nil
+}
+
+func (h *SystemHandler) checkAuthService(ctx context.Context) (time.Duration, error) {
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	startAuth := time.Now()
+	if err := h.auth.HealthCheck(ctx); err != nil {
+		return time.Since(startAuth), err
+	}
+	return time.Since(startAuth), nil
+}
+
+
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 	log := applogger.FromContext(r.Context())
 
@@ -122,17 +147,12 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 	dbStatus := dto.StatusReady
 	var dbError string
 
-	// Ограничиваем время выполнения
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	startDB := time.Now()
-	if err := h.db.Ping(ctx); err != nil {
+	dbDuration, err := h.checkDatabase(r.Context())
+	if err != nil {
 		log.Error("health check: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
 		dbError = "database connection failed"
 	}
-	dbDuration := time.Since(startDB)
 
 	if dbStatus == dto.StatusError {
 		generalStatus = dto.StatusError
@@ -168,27 +188,21 @@ func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	authStatus := dto.StatusReady
 	var dbError, authError string
 
-	// Ограничиваем время выполнения
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	startDB := time.Now()
-	if err := h.db.Ping(ctx); err != nil {
+	dbDuration, err := h.checkDatabase(r.Context())
+	if err != nil {
 		log.Error("readiness check: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
 		dbError = "database connection failed"
 		isReady = false
 	}
-	dbDuration := time.Since(startDB)
 
-	startAuth := time.Now()
-	if err := h.auth.HealthCheck(ctx); err != nil {
+	authDuration, err := h.checkAuthService(r.Context())
+	if err != nil {
 		log.Error("readiness check: auth service failed", slog.Any("error", err))
 		authStatus = dto.StatusError
 		authError = "authentication service failed"
 		isReady = false
 	}
-	authDuration := time.Since(startAuth)
 
 	resp := dto.ReadyResponse{
 		Ready:     isReady,
