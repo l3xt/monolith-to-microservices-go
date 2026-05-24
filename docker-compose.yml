@@ -1,5 +1,5 @@
 services:
-  # Users Service Database
+  # users Service Database
   users-postgres:
     image: postgres:15-alpine
     environment:
@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - ./users-service/migrations:/docker-entrypoint-initdb.d:ro
       - users_postgres_data:/var/lib/postgresql/data
@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5434:5432"
+      - "5433:5432"
     volumes:
       - ./books-service/migrations:/docker-entrypoint-initdb.d:ro
       - books_postgres_data:/var/lib/postgresql/data
@@ -34,6 +34,54 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # users Service (Go)
+  users-service:
+    build:
+      context: .
+      dockerfile: ./users-service/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      VERSION: "1.0.0"
+      PORT: "8081"
+      DB_URL: "postgres://postgres:postgres@users-postgres:5432/users?sslmode=disable"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SERVICE_KEY: ${SERVICE_KEY}
+    depends_on:
+      users-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # Books Service (Go)
+  books-service:
+    build:
+      context: .
+      dockerfile: ./books-service/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      VERSION: "1.0.0"
+      PORT: "8082"
+      DB_URL: "postgres://postgres:postgres@books-postgres:5432/books?sslmode=disable"
+      AUTH_SERVICE_URL: "http://users-service:8081"
+      SERVICE_KEY: ${SERVICE_KEY}
+    depends_on:
+      books-postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8082/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   # Frontend Application
   frontend:
@@ -44,6 +92,10 @@ services:
       users-postgres:
         condition: service_healthy
       books-postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+      books-service:
         condition: service_healthy
 
 volumes:
