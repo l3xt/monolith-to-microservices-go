@@ -24,8 +24,7 @@ var (
 	ErrNotBookOwner           = errors.New("not book owner")
 )
 
-// MODELS
-// Основная для хранения
+// БИЗНЕС МОДЕЛИ
 type Book struct {
 	ID            uuid.UUID
 	Title         string
@@ -36,6 +35,7 @@ type Book struct {
 	AverageRating float64
 	ReviewsCount  int
 	UserID        uuid.UUID
+	Cover         *Cover // Обложка
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -69,6 +69,7 @@ type BookRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*Book, error)
 	List(ctx context.Context, filter *BookFilter) ([]Book, int, error)
 	Update(ctx context.Context, book *Book) error
+	UpdateCover(ctx context.Context, bookID string, coverURL, thumbURL string, status CoverStatus) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 

@@ -8,6 +8,7 @@ import (
 	applogger "bookshelf/books-service/internal/logger"
 	"bookshelf/books-service/internal/repository"
 	"bookshelf/books-service/internal/service"
+	app_amqp "bookshelf/books-service/internal/transport/amqp"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	"bookshelf/pkg/httpclient"
+	"bookshelf/pkg/minio"
+	"bookshelf/pkg/rabbitmq"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -35,7 +38,7 @@ func main() {
 	defer cancel()
 
 	if err := run(ctx, logger); err != nil {
-		logger.Error("failed to start users service", slog.Any("error", err))
+		logger.Error("failed to start books service", slog.Any("error", err))
 		os.Exit(1)
 	}
 }
@@ -62,13 +65,32 @@ func run(ctx context.Context, log *slog.Logger) error {
 	defer db.Close()
 
 	log.Info("connected to database")
+	minioClient, err := minio.New(minio.Config{
+		Endpoint:       cfg.Storage.Endpoint,
+		PublicEndpoint: cfg.Storage.PublicEndpoint,
+		AccessKey:      cfg.Storage.AccessKey,
+		SecretKey:      cfg.Storage.SecretKey,
+		UseSSL:         cfg.Storage.UseSSL,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create minio client: %w", err)
+	}
+
+	rabbitMQClient, err := rabbitmq.NewRabbitMQClient(cfg.RabbitMQURL)
+	if err != nil {
+		return fmt.Errorf("failed to create rabbitmq client: %w", err)
+	}
 
 	// Инициализация репозиториев
 	bookRepo := repository.NewBookRepository(db)
+	coverRepo := repository.NewCoverRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
+
+	eventPublisher := app_amqp.NewProducer(rabbitMQClient)
 
 	// Инициализация бизнес-логики
 	bookService := service.NewBookService(bookRepo)
+	coverService := service.NewCoverService(bookRepo, coverRepo, minioClient, eventPublisher)
 	reviewService := service.NewReviewService(bookRepo, reviewRepo)
 
 	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
@@ -76,10 +98,11 @@ func run(ctx context.Context, log *slog.Logger) error {
 
 	// Инициализация транспортного слоя
 	bookHandler := handler.NewBookHandler(bookService)
+	coverHandler := handler.NewCoverHandler(coverService, cfg.Storage.Bucket)
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	systemHandler := handler.NewSystemHandler(cfg.Version, db, authClient)
 
-	router := newRouter(bookHandler, reviewHandler, systemHandler, authClient)
+	router := newRouter(bookHandler, coverHandler, reviewHandler, systemHandler, authClient)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -119,7 +142,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-func newRouter(bookH *handler.BookHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler, tv handler.TokenValidator) *chi.Mux {
+func newRouter(bookH *handler.BookHandler, coverH *handler.CoverHandler, reviewH *handler.ReviewHandler, systemH *handler.SystemHandler, tv handler.TokenValidator) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(cors.Handler(cors.Options{
@@ -162,6 +185,8 @@ func newRouter(bookH *handler.BookHandler, reviewH *handler.ReviewHandler, syste
 			r.Post("/books/{bookId}/reviews", reviewH.CreateReview)
 			r.Put("/reviews/{reviewId}", reviewH.UpdateReview)
 			r.Delete("/reviews/{reviewId}", reviewH.DeleteReview)
+
+			r.Post("/books/{bookId}/cover", coverH.UploadBookCover)
 		})
 	})
 

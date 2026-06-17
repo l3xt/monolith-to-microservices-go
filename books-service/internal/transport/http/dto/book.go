@@ -1,42 +1,45 @@
 package dto
 
 import (
+	"bookshelf/books-service/internal/domain"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type BookResponse struct {
-	ID            uuid.UUID `db:"id" json:"id"`
-	Title         string    `db:"title" json:"title"`
-	Author        string    `db:"author" json:"author"`
-	Description   *string   `db:"description" json:"description"`
-	ISBN          *string   `db:"isbn" json:"isbn"`
-	PublisherYear *int32    `db:"published_year" json:"published_year"`
-	AverageRating float64   `db:"-" json:"average_rating"`
-	ReviewsCount  int       `db:"-" json:"reviews_count"`
-	UserID        uuid.UUID `db:"created_by" json:"created_by"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
+	ID            uuid.UUID          `json:"id"`
+	Title         string             `json:"title"`
+	Author        string             `json:"author"`
+	Description   *string            `json:"description"`
+	ISBN          *string            `json:"isbn"`
+	PublisherYear *int32             `json:"published_year"`
+	AverageRating float64            `json:"average_rating"`
+	ReviewsCount  int                `json:"reviews_count"`
+	UserID        uuid.UUID          `json:"created_by"`
+	CoverStatus   domain.CoverStatus `json:"cover_status"`
+	CoverURL      *string            `json:"cover_url,omitempty"`
+	ThumbURL      *string            `json:"thumb_url,omitempty"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
 }
-
 type BookListResponse struct {
 	Data       []BookResponse `json:"data"`
 	Pagination *Pagination    `json:"pagination"`
 }
 
 type CreateBookRequest struct {
-	Title         string  `db:"title" json:"title"`
-	Author        string  `db:"author" json:"author"`
-	Description   *string `db:"description" json:"description"`
-	ISBN          *string `db:"isbn" json:"isbn"`
-	PublishedYear *int32  `db:"published_year" json:"published_year"`
+	Title         string  `json:"title"`
+	Author        string  `json:"author"`
+	Description   *string `json:"description"`
+	ISBN          *string `json:"isbn"`
+	PublishedYear *int32  `json:"published_year"`
 }
 
 type UpdateBookRequest struct {
-	Title         *string `db:"title" json:"title"`
-	Author        *string `db:"author" json:"author"`
-	Description   *string `db:"description" json:"description"`
-	ISBN          *string `db:"isbn" json:"isbn"`
-	PublishedYear *int32  `db:"published_year" json:"published_year"`
+	Title         *string `json:"title"`
+	Author        *string `json:"author"`
+	Description   *string `json:"description"`
+	ISBN          *string `json:"isbn"`
+	PublishedYear *int32  `json:"published_year"`
 }

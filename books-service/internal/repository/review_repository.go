@@ -28,15 +28,16 @@ func (r *ReviewRepository) Create(ctx context.Context, review *domain.Review) er
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
+	reviewDB := NewReviewDB(review)
 
 	err := r.db.Pool.QueryRow(
 		ctx,
 		query,
-		review.BookID,
-		review.UserID,
-		review.Rating,
-		review.Title,
-		review.Content,
+		reviewDB.BookID,
+		reviewDB.UserID,
+		reviewDB.Rating,
+		reviewDB.Title,
+		reviewDB.Content,
 	).Scan(&review.ID, &review.CreatedAt, &review.UpdatedAt)
 
 	if err != nil {
@@ -49,7 +50,7 @@ func (r *ReviewRepository) Create(ctx context.Context, review *domain.Review) er
 func (r *ReviewRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Review, error) {
 	const query = `
 		SELECT id, book_id , user_id, rating, title, content, created_by, created_at, updated_at 
-		FROM books WHERE id = $1
+		FROM reviews WHERE id = $1
 	`
 
 	rows, err := r.db.Pool.Query(ctx, query, id)
@@ -122,14 +123,16 @@ func (r *ReviewRepository) Update(ctx context.Context, review *domain.Review) er
 		WHERE id = $4
 		RETURNING updated_at
 	`
+
+	reviewDB := NewReviewDB(review)
 	
 	err := r.db.Pool.QueryRow(
 		ctx,
 		query,
-		review.Rating,
-		review.Title,
-		review.Content,
-		review.ID,
+		reviewDB.Rating,
+		reviewDB.Title,
+		reviewDB.Content,
+		reviewDB.ID,
 	).Scan(&review.UpdatedAt)
 
 	if err != nil {

@@ -34,20 +34,25 @@ func NewBookRepository(db *database.PostgresDB) *BookRepository {
 
 func (r *BookRepository) Create(ctx context.Context, book *domain.Book) error {
 	const query = `
-		INSERT INTO books (title, author, description, isbn, published_year, user_id)
- 		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO books (title, author, description, isbn, published_year, cover_status, cover_url, thumbnail_url, user_id)
+ 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`
+
+	dbModel := NewBookDB(book)
 
 	err := r.db.Pool.QueryRow(
 		ctx,
 		query,
-		book.Title,
-		book.Author,
-		book.Description,
-		book.ISBN,
-		book.PublishedYear,
-		book.UserID,
+		dbModel.Title,
+		dbModel.Author,
+		dbModel.Description,
+		dbModel.ISBN,
+		dbModel.PublishedYear,
+		dbModel.CoverStatus,
+		dbModel.CoverURL,
+		dbModel.ThumbnailURL,
+		dbModel.UserID,
 	).Scan(&book.ID, &book.CreatedAt, &book.UpdatedAt)
 
 	if err != nil {
@@ -66,6 +71,9 @@ func (r *BookRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Boo
 			b.description, 
 			b.isbn, 
 			b.published_year, 
+			cover_status, 
+			cover_url, 
+			thumbnail_url, 
 			b.user_id, 
 			b.created_at, 
 			b.updated_at,
@@ -108,6 +116,9 @@ func (r *BookRepository) List(ctx context.Context, filter *domain.BookFilter) ([
 			b.description, 
 			b.isbn, 
 			b.published_year, 
+			cover_status, 
+			cover_url, 
+			thumbnail_url, 
 			b.user_id, 
 			b.created_at, 
 			b.updated_at,
@@ -148,10 +159,20 @@ func (r *BookRepository) List(ctx context.Context, filter *domain.BookFilter) ([
 	books, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Book, error) {
 		var bDB BookDB
 		if err := row.Scan(
-			&bDB.ID, &bDB.Title, &bDB.Author, &bDB.Description,
-			&bDB.ISBN, &bDB.PublishedYear, &bDB.UserID,
-			&bDB.CreatedAt, &bDB.UpdatedAt,
-			&bDB.AverageRating, &bDB.ReviewsCount,
+			&bDB.ID,
+			&bDB.Title,
+			&bDB.Author,
+			&bDB.Description,
+			&bDB.ISBN,
+			&bDB.PublishedYear,
+			&bDB.CoverStatus,
+			&bDB.CoverURL,
+			&bDB.ThumbnailURL,
+			&bDB.UserID,
+			&bDB.CreatedAt,
+			&bDB.UpdatedAt,
+			&bDB.AverageRating,
+			&bDB.ReviewsCount,
 		); err != nil {
 			return domain.Book{}, err
 		}
@@ -238,21 +259,53 @@ func (r *BookRepository) ListByUser(ctx context.Context, userID uuid.UUID, filte
 func (r *BookRepository) Update(ctx context.Context, book *domain.Book) error {
 	const query = `
 		UPDATE books
-		SET title = $1, author = $2, description = $3, isbn = $4, published_year = $5
-		WHERE id = $6
+		SET title = $1, author = $2, description = $3, isbn = $4, published_year = $5, cover_status = $6, cover_url = $7, thumbnail_url = $8
+		WHERE id = $9
 		RETURNING updated_at
 	`
+
+	dbModel := NewBookDB(book)
 
 	err := r.db.Pool.QueryRow(
 		ctx,
 		query,
-		book.Title,
-		book.Author,
-		book.Description,
-		book.ISBN,
-		book.PublishedYear,
-		book.ID,
+		dbModel.Title,
+		dbModel.Author,
+		dbModel.Description,
+		dbModel.ISBN,
+		dbModel.PublishedYear,
+		dbModel.CoverStatus,
+		dbModel.CoverURL,
+		dbModel.ThumbnailURL,
+		dbModel.ID,
 	).Scan(&book.UpdatedAt)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrBookNotFound
+		}
+		return fmt.Errorf("BookRepository.Update: %w", err)
+	}
+
+	return nil
+}
+
+func (r *BookRepository) UpdateCover(ctx context.Context, bookID string, coverURL, thumbURL string, status domain.CoverStatus) error {
+	const query = `
+		UPDATE books
+		SET cover_status = $1, cover_url = $2, thumbnail_url = $3
+		WHERE id = $4
+		RETURNING updated_at
+	`
+
+	_, err := r.db.Pool.Exec(
+		ctx,
+		query,
+		status,
+		coverURL,
+		thumbURL,
+		bookID,
+	)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

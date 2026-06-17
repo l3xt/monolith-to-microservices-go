@@ -29,10 +29,10 @@ type GetUsersRequest struct {
 }
 
 type VerifyResponse struct {
-	Valid     bool   `json:"valid"`
+	Valid     bool      `json:"valid"`
 	UserID    uuid.UUID `json:"user_id"`
-	ExpiresAt int64  `json:"expires_at"`
-	Error     string `json:"error"`
+	ExpiresAt int64     `json:"expires_at"`
+	Error     string    `json:"error"`
 }
 
 type GetUsersResponse struct {
