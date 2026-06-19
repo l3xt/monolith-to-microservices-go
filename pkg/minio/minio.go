@@ -67,6 +67,21 @@ func (s *Storage) Upload(ctx context.Context, bucketName, objectName string, rea
 	return nil
 }
 
+func (s *Storage) Get(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
+	obj, err := s.client.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Storage Get: failed to get object: %w", err)
+	}
+
+	// Stat(), чтобы сразу вернуть ошибку, если файла нет
+	if _, err := obj.Stat(); err != nil {
+		_ = obj.Close()
+		return nil, fmt.Errorf("Storage Get: object not found or unavailable: %w", err)
+	}
+
+	return obj, nil
+}
+
 func (s *Storage) GetURL(bucketName, objectName string) (string, error) {
 	return url.JoinPath(s.publicEndpoint, bucketName, objectName)
 }
