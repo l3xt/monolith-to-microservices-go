@@ -8,6 +8,7 @@ import (
 	applogger "bookshelf/books-service/internal/logger"
 	"bookshelf/books-service/internal/repository"
 	"bookshelf/books-service/internal/service"
+	"bookshelf/books-service/internal/storage/s3"
 	app_amqp "bookshelf/books-service/internal/transport/amqp"
 	"context"
 	"errors"
@@ -49,22 +50,21 @@ func run(ctx context.Context, log *slog.Logger) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	dbCfg := database.Config{
-		URL:               cfg.DatabaseURL,
-		MaxConns:          10,
-		MinConns:          2,
-		MaxConnLifetime:   time.Hour,
-		MaxConnIdleTime:   5 * time.Minute,
-		HealthCheckPeriod: 10 * time.Second,
-	}
-
-	db, err := database.NewPostgresDB(ctx, dbCfg)
+	db, err := database.NewPostgresDB(
+		ctx,
+		cfg.Database.URL,
+		cfg.Database.MaxConns,
+		cfg.Database.MinConns,
+		cfg.Database.MaxConnLifetime,
+		cfg.Database.MaxConnIdleTime,
+		cfg.Database.HealthCheckPeriod,
+	)
 	if err != nil {
 		return fmt.Errorf("db open: %w", err)
 	}
 	defer db.Close()
-
 	log.Info("connected to database")
+
 	minioClient, err := minio.New(minio.Config{
 		Endpoint:       cfg.Storage.Endpoint,
 		PublicEndpoint: cfg.Storage.PublicEndpoint,
@@ -76,21 +76,25 @@ func run(ctx context.Context, log *slog.Logger) error {
 		return fmt.Errorf("failed to create minio client: %w", err)
 	}
 
-	rabbitMQClient, err := rabbitmq.NewRabbitMQClient(cfg.RabbitMQURL)
+
+	rabbitMQClient, err := rabbitmq.NewRabbitMQClient(cfg.Broker.URL)
 	if err != nil {
 		return fmt.Errorf("failed to create rabbitmq client: %w", err)
 	}
+	defer rabbitMQClient.Close()
 
 	// Инициализация репозиториев
 	bookRepo := repository.NewBookRepository(db)
 	coverRepo := repository.NewCoverRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 
+	// Инициализация адаптеров
 	eventPublisher := app_amqp.NewProducer(rabbitMQClient)
+	imageStorage := s3.NewImageStorage(minioClient, cfg.Storage.Bucket)
 
 	// Инициализация бизнес-логики
 	bookService := service.NewBookService(bookRepo)
-	coverService := service.NewCoverService(bookRepo, coverRepo, minioClient, eventPublisher)
+	coverService := service.NewCoverService(bookRepo, coverRepo, imageStorage, eventPublisher)
 	reviewService := service.NewReviewService(bookRepo, reviewRepo)
 
 	baseHTTPClient := httpclient.NewClient(cfg.AuthServiceURL, 5*time.Second)
@@ -98,7 +102,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 
 	// Инициализация транспортного слоя
 	bookHandler := handler.NewBookHandler(bookService)
-	coverHandler := handler.NewCoverHandler(coverService, cfg.Storage.Bucket)
+	coverHandler := handler.NewCoverHandler(coverService)
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	systemHandler := handler.NewSystemHandler(cfg.Version, db, authClient)
 

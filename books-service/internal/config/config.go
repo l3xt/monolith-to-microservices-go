@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -11,6 +13,12 @@ const (
 	DefaultVersion       = "1.0.0"
 	DefaultPort          = "8082"
 	DefaultStorageBucket = "books-bucket"
+
+	DefaultDBMaxConns          int32 = 10
+	DefaultDBMinConns          int32 = 2
+	DefaultDBMaxConnLifetime         = time.Hour
+	DefaultDBMaxConnIdleTime         = 5 * time.Minute
+	DefaultDBHealthCheckPeriod       = 10 * time.Second
 )
 
 var (
@@ -32,9 +40,20 @@ type Config struct {
 	DatabaseURL    string
 	AuthServiceURL string
 	ServiceKey     string
+	Database       DatabaseConfig
 	Storage        StorageConfig
-	RabbitMQURL    string
+	Broker         BrokerConfig
 }
+
+type DatabaseConfig struct {
+	URL               string
+	MaxConns          int32
+	MinConns          int32
+	MaxConnLifetime   time.Duration
+	MaxConnIdleTime   time.Duration
+	HealthCheckPeriod time.Duration
+}
+
 type StorageConfig struct {
 	Endpoint       string
 	PublicEndpoint string
@@ -44,23 +63,16 @@ type StorageConfig struct {
 	UseSSL         bool
 }
 
+type BrokerConfig struct {
+	URL       string
+	QueueName string
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
-	version, ok := os.LookupEnv("VERSION")
-	if !ok {
-		version = DefaultVersion
-	}
-
-	port, ok := os.LookupEnv("PORT")
-	if !ok {
-		port = DefaultPort
-	}
-
-	dbUrl, ok := os.LookupEnv("DB_URL")
-	if !ok {
-		return nil, ErrLoadDBUrl
-	}
+	version := getEnv("VERSION", DefaultVersion)
+	port := getEnv("PORT", DefaultPort)
 
 	authService, ok := os.LookupEnv("AUTH_SERVICE_URL")
 	if !ok {
@@ -71,6 +83,18 @@ func Load() (*Config, error) {
 	if !ok {
 		return nil, ErrLoadServiceKey
 	}
+
+	// DATABASE
+	dbUrl, ok := os.LookupEnv("DB_URL")
+	if !ok {
+		return nil, ErrLoadDBUrl
+	}
+
+	dbMaxConns := getEnv("DB_MAX_CONNS", DefaultDBMaxConns)
+	dbMinConns := getEnv("DB_MIN_CONNS", DefaultDBMinConns)
+	dbMaxConnLifetime := getEnv("DB_MAX_CONN_LIFETIME", DefaultDBMaxConnLifetime)
+	dbMaxConnIdleTime := getEnv("DB_MAX_CONN_IDLE_TIME", DefaultDBMaxConnIdleTime)
+	dbHealthCheckPeriod := getEnv("DB_HEALTH_CHECK_PERIOD", DefaultDBHealthCheckPeriod)
 
 	// STORAGE
 	storageEndpoint, ok := os.LookupEnv("STORAGE_ENDPOINT")
@@ -93,15 +117,8 @@ func Load() (*Config, error) {
 		return nil, ErrLoadStorageSecretKey
 	}
 
-	storageBucket, ok := os.LookupEnv("STORAGE_BUCKET")
-	if !ok {
-		storageBucket = DefaultStorageBucket
-	}
-
-	useSSL := false
-	if ssl, ok := os.LookupEnv("STORAGE_USE_SSL"); ok && ssl == "true" {
-		useSSL = true
-	}
+	storageBucket := getEnv("STORAGE_BUCKET", DefaultStorageBucket)
+	useSSL := getEnv("STORAGE_USE_SSL", false)
 
 	// RabbitMQ
 	rabbitmqURL, ok := os.LookupEnv("RABBITMQ_URL")
@@ -115,6 +132,14 @@ func Load() (*Config, error) {
 		DatabaseURL:    dbUrl,
 		AuthServiceURL: authService,
 		ServiceKey:     serviceKey,
+		Database: DatabaseConfig{
+			URL:               dbUrl,
+			MaxConns:          dbMaxConns,
+			MinConns:          dbMinConns,
+			MaxConnLifetime:   dbMaxConnLifetime,
+			MaxConnIdleTime:   dbMaxConnIdleTime,
+			HealthCheckPeriod: dbHealthCheckPeriod,
+		},
 		Storage: StorageConfig{
 			Endpoint:       storageEndpoint,
 			PublicEndpoint: storagePublicEndpoint,
@@ -123,6 +148,36 @@ func Load() (*Config, error) {
 			Bucket:         storageBucket,
 			UseSSL:         useSSL,
 		},
-		RabbitMQURL: rabbitmqURL,
+		Broker: BrokerConfig{
+			URL:       rabbitmqURL,
+			QueueName: getEnv("QUEUE_NAME", "image_compress"),
+		},
 	}, nil
+}
+
+func getEnv[T any](key string, defaultValue T) T {
+	valueStr, ok := os.LookupEnv(key)
+	if !ok {
+		return defaultValue
+	}
+
+	var ret any = defaultValue
+	switch any(defaultValue).(type) {
+	case string:
+		ret = valueStr
+	case int32:
+		if v, err := strconv.ParseInt(valueStr, 10, 32); err == nil {
+			ret = int32(v)
+		}
+	case time.Duration:
+		if v, err := time.ParseDuration(valueStr); err == nil {
+			ret = v
+		}
+	case bool:
+		if v, err := strconv.ParseBool(valueStr); err == nil {
+			ret = v
+		}
+	}
+
+	return ret.(T)
 }

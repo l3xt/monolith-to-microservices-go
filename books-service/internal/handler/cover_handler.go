@@ -20,18 +20,16 @@ const (
 )
 
 type CoverUseCase interface {
-	UploadBookCover(ctx context.Context, userID, bookID uuid.UUID, reader io.Reader, filename, bucketName string, size int64) (uuid.UUID, error)
+	UploadBookCover(ctx context.Context, userID, bookID uuid.UUID, reader io.Reader, size int64) (uuid.UUID, error)
 }
 
 type CoverHandler struct {
-	bucketName   string
 	coverService CoverUseCase
 }
 
-func NewCoverHandler(useCase CoverUseCase, bucketName string) *CoverHandler {
+func NewCoverHandler(useCase CoverUseCase) *CoverHandler {
 	return &CoverHandler{
 		coverService: useCase,
-		bucketName:   bucketName,
 	}
 }
 
@@ -77,7 +75,7 @@ func (h *CoverHandler) UploadBookCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coverID, err := h.coverService.UploadBookCover(r.Context(), userID, bookID, file, header.Filename, h.bucketName, header.Size)
+	coverID, err := h.coverService.UploadBookCover(r.Context(), userID, bookID, file, header.Size)
 	if err != nil {
 		log.Error("failed to upload cover", slog.Any("error", err))
 		if errors.Is(err, domain.ErrNotBookOwner) {

@@ -22,8 +22,8 @@ type PostgresDB struct {
 	Pool *pgxpool.Pool
 }
 
-func NewPostgresDB(ctx context.Context, cfg Config) (*PostgresDB, error) {
-	pool, err := newPool(ctx, cfg)
+func NewPostgresDB(ctx context.Context, url string, maxConns, minConns int32, lifeTime, idleTime, checkPeriod time.Duration) (*PostgresDB, error) {
+	pool, err := newPool(ctx, url, maxConns, minConns, lifeTime, idleTime, checkPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("NewPostgresDB: %w", err)
 	}
@@ -33,19 +33,19 @@ func NewPostgresDB(ctx context.Context, cfg Config) (*PostgresDB, error) {
 	}, nil
 }
 
-func newPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.URL)
+func newPool(ctx context.Context, url string, maxConns, minConns int32, lifeTime, idleTime, checkPeriod time.Duration) (*pgxpool.Pool, error) {
+	poolCfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("parsing db url: %w", err)
 	}
 
-	poolCfg.MaxConns = cfg.MaxConns
-	poolCfg.MinConns = cfg.MinConns
+	poolCfg.MaxConns = maxConns
+	poolCfg.MinConns = minConns
 
-	poolCfg.MaxConnLifetime = cfg.MaxConnLifetime
-	poolCfg.MaxConnIdleTime = cfg.MaxConnIdleTime
+	poolCfg.MaxConnLifetime = lifeTime
+	poolCfg.MaxConnIdleTime = idleTime
 
-	poolCfg.HealthCheckPeriod = cfg.HealthCheckPeriod
+	poolCfg.HealthCheckPeriod = checkPeriod
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
