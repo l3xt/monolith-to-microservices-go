@@ -35,7 +35,7 @@ func New(cfg Config) (*Storage, error) {
 		Secure: cfg.UseSSL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Storage New: failed to initialize minio client: %w", err)
+		return nil, fmt.Errorf("Storage.New: failed to initialize minio client: %w", err)
 	}
 	return &Storage{
 		client:         minioClient,
@@ -46,12 +46,12 @@ func New(cfg Config) (*Storage, error) {
 func (s *Storage) EnsureBucket(ctx context.Context, bucketName string) error {
 	exists, err := s.client.BucketExists(ctx, bucketName)
 	if err != nil {
-		return fmt.Errorf("Storage EnsureBucket: failed to check if bucket exists: %w", err)
+		return fmt.Errorf("Storage.EnsureBucket: failed to check if bucket exists: %w", err)
 	}
 	if !exists {
 		err = s.client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 		if err != nil {
-			return fmt.Errorf("Storage EnsureBucket: failed to create bucket: %w", err)
+			return fmt.Errorf("Storage.EnsureBucket: failed to create bucket: %w", err)
 		}
 	}
 	return nil
@@ -62,7 +62,7 @@ func (s *Storage) Upload(ctx context.Context, bucketName, objectName string, rea
 		ContentType: contentType,
 	})
 	if err != nil {
-		return fmt.Errorf("Storage Upload: failed to upload object: %w", err)
+		return fmt.Errorf("Storage.Upload: failed to upload object: %w", err)
 	}
 	return nil
 }
@@ -70,13 +70,13 @@ func (s *Storage) Upload(ctx context.Context, bucketName, objectName string, rea
 func (s *Storage) Get(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	obj, err := s.client.GetObject(ctx, bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Storage Get: failed to get object: %w", err)
+		return nil, fmt.Errorf("Storage.Get: failed to get object: %w", err)
 	}
 
 	// Stat(), чтобы сразу вернуть ошибку, если файла нет
 	if _, err := obj.Stat(); err != nil {
 		_ = obj.Close()
-		return nil, fmt.Errorf("Storage Get: object not found or unavailable: %w", err)
+		return nil, fmt.Errorf("Storage.Get: object not found or unavailable: %w", err)
 	}
 
 	return obj, nil
@@ -98,7 +98,7 @@ func (s *Storage) GetPresignedURL(ctx context.Context, bucketName, objectName st
 func (s *Storage) Delete(ctx context.Context, bucketName, objectName string) error {
 	err := s.client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
-		return fmt.Errorf("Storage Delete: failed to remove object: %w", err)
+		return fmt.Errorf("Storage.Delete: failed to remove object: %w", err)
 	}
 	return nil
 }
@@ -106,7 +106,7 @@ func (s *Storage) Delete(ctx context.Context, bucketName, objectName string) err
 func (s *Storage) HealthCheck(ctx context.Context, bucketName string) error {
 	exists, err := s.client.BucketExists(ctx, bucketName)
 	if err != nil {
-		return fmt.Errorf("Storage HealthCheck: failed to check if bucket exists: %w", err)
+		return fmt.Errorf("Storage.HealthCheck: failed to check if bucket exists: %w", err)
 	}
 	if !exists {
 		return ErrBucketNotExists

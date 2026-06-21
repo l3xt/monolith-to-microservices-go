@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -47,7 +48,7 @@ func (c *RabbitMQClient) Close() error {
 	if err := c.CloseChannel(); err != nil {
 		return err
 	}
-	
+
 	if c.conn != nil {
 		c.conn.Close()
 	}
@@ -62,21 +63,26 @@ func (c *RabbitMQClient) CloseChannel() error {
 }
 
 // Статус
-func (c *RabbitMQClient) HealthCheck() error {
+func (c *RabbitMQClient) HealthCheck(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("RabbitMQClient.HealthCheck: context canceled: %w", err)
+	}
+
 	if c.conn == nil || c.conn.IsClosed() {
-		return errors.New("rabbitmq connection is closed")
+		return errors.New("RabbitMQClient.HealthCheck: connection is closed")
 	}
 
 	if c.ch == nil || c.ch.IsClosed() {
-		return errors.New("rabbitmq channel is closed")
+		return errors.New("RabbitMQClient.HealthCheck: channel is closed")
 	}
 
 	return nil
 }
 
+
 // Публикация сообщения в очередь
 func (c *RabbitMQClient) PublishMessage(ctx context.Context, queueName string, message []byte) error {
-	return c.ch.PublishWithContext(
+	err := c.ch.PublishWithContext(
 		ctx,
 		"",
 		queueName,
@@ -84,28 +90,43 @@ func (c *RabbitMQClient) PublishMessage(ctx context.Context, queueName string, m
 		false,
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
-			ContentType: "application/json",
-			Body:        message,
+			ContentType:  "application/json",
+			Body:         message,
 		})
+
+	if err != nil {
+		return fmt.Errorf("RabbitMQClient.PublishMessage: failed to publish message: %w", err)
+	}
+	return nil
 }
 
 func (c *RabbitMQClient) Consume(queueName string) (<-chan amqp.Delivery, error) {
-    return c.ch.Consume(
-        queueName,
-        "",    // consumer name
-        false, // auto-ack
-        false, // exclusive
-        false, // no-local
-        false, // no-wait
-        nil,   // args
-    )
+	deliveries, err := c.ch.Consume(
+		queueName,
+		"",    // consumer name
+		false, // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,   // args
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("RabbitMQClient.Consume: failed to start consuming: %w", err)
+	}
+	return deliveries, nil
 }
 
 // настраивает правила предварительной выборки сообщений
 func (c *RabbitMQClient) SetQoS(prefetchCount int, prefetchSize int, global bool) error {
-	return c.ch.Qos(
+	err := c.ch.Qos(
 		prefetchCount,
 		prefetchSize,
 		global,
 	)
+
+	if err != nil {
+		return fmt.Errorf("RabbitMQClient.SetQoS: failed to set QoS: %w", err)
+	}
+	return nil
 }
