@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bookshelf/users-service/internal/domain"
 	applogger "bookshelf/users-service/internal/logger"
 	"bookshelf/users-service/internal/transport/http/dto"
 	"context"
@@ -28,12 +27,16 @@ var (
 	ErrEmptyParam         = errors.New("param is empty")
 )
 
-type SystemHandler struct {
-	version string
-	db      domain.Pinger
+type HealthChecker interface {
+	HealthCheck(ctx context.Context) error
 }
 
-func NewSystemHandler(ver string, db domain.Pinger) *SystemHandler {
+type SystemHandler struct {
+	version string
+	db      HealthChecker
+}
+
+func NewSystemHandler(ver string, db HealthChecker) *SystemHandler {
 	return &SystemHandler{version: ver, db: db}
 }
 
@@ -120,13 +123,21 @@ func (h *SystemHandler) checkDatabase(ctx context.Context) (time.Duration, error
 	defer cancel()
 
 	startDB := time.Now()
-	if err := h.db.Ping(ctx); err != nil {
+	if err := h.db.HealthCheck(ctx); err != nil {
 		return time.Since(startDB), err
 	}
 	return time.Since(startDB), nil
 }
 
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, dto.HealthResponse{
+		Status:    dto.StatusReady,
+		Service:   "users-service",
+		Timestamp: time.Now(),
+	})
+}
+
+func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	log := applogger.FromContext(r.Context())
 
 	generalStatus := dto.StatusReady
@@ -144,7 +155,7 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 		generalStatus = dto.StatusError
 	}
 
-	resp := dto.HealthResponse{
+	resp := dto.ReadyResponse{
 		Status:    generalStatus,
 		Service:   "users-service",
 		Version:   h.version,
@@ -166,38 +177,3 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusCode, resp)
 }
 
-func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
-	log := applogger.FromContext(r.Context())
-
-	isReady := true
-	dbStatus := dto.StatusReady
-	var dbError string
-
-	dbDuration, err := h.checkDatabase(r.Context())
-	if err != nil {
-		log.Error("readiness check: database ping failed", slog.Any("error", err))
-		dbStatus = dto.StatusError
-		dbError = "database connection failed"
-		isReady = false
-	}
-
-	resp := dto.ReadyResponse{
-		Ready:     isReady,
-		Service:   "users-service",
-		Timestamp: time.Now(),
-		Checks: map[string]dto.Check{
-			"database": {
-				Status:   dbStatus,
-				Duration: dbDuration.String(),
-				Error:    dbError,
-			},
-		},
-	}
-
-	statusCode := http.StatusOK
-	if !isReady {
-		statusCode = http.StatusServiceUnavailable
-	}
-
-	writeJSON(w, statusCode, resp)
-}

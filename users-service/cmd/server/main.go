@@ -74,7 +74,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	// Инициализация транспортного слоя
 	authHandler := handler.NewAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
-	systemHandler := handler.NewSystemHandler(cfg.Version,db)
+	systemHandler := handler.NewSystemHandler(cfg.Version, db)
 	internalHandler := handler.NewInternalHandler(jwtManager, userService)
 
 	router := newRouter(log, authHandler, userHandler, systemHandler, internalHandler, jwtManager, cfg.ServiceKey)

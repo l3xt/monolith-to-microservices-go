@@ -18,7 +18,7 @@ type UserRepository struct {
 
 func NewUserRepository(db *database.PostgresDB) *UserRepository {
 	if db == nil {
-		panic("db is nil")
+		panic("NewUserRepository: db is nil")
 	}
 	return &UserRepository{db: db}
 }

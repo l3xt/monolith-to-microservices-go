@@ -60,7 +60,7 @@ func newPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func (db *PostgresDB) Ping(ctx context.Context) error {
+func (db *PostgresDB) HealthCheck(ctx context.Context) error {
 	if err := db.Pool.Ping(ctx); err != nil {
 		return fmt.Errorf("db ping failed: %w", err)
 	}
