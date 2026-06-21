@@ -12,12 +12,21 @@ import (
 var (
 	ErrEmptyBookID = errors.New("empty id value")
 )
-
-type BookService struct {
-	bookRepo domain.BookRepository
+	
+type BookRepository interface {
+	Create(ctx context.Context, book *domain.Book) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Book, error)
+	List(ctx context.Context, filter *domain.BookFilter) ([]domain.Book, int, error)
+	Update(ctx context.Context, book *domain.Book) error
+	UpdateCover(ctx context.Context, bookID uuid.UUID, status domain.CoverStatus, coverURL, thumbURL *string) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-func NewBookService(b domain.BookRepository) *BookService {
+type BookService struct {
+	bookRepo BookRepository
+}
+
+func NewBookService(b BookRepository) *BookService {
 	return &BookService{
 		bookRepo: b,
 	}

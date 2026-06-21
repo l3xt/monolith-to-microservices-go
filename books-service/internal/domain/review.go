@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
 	"time"
 	"unicode/utf8"
 
@@ -13,14 +12,6 @@ const (
 	ReviewMinRating     = 1
 	ReviewMaxRating     = 5
 	ReviewContentMinLen = 10
-)
-
-var (
-	ErrReviewNotFound        = errors.New("review not found")
-	ErrNotReviewOwner        = errors.New("user is not review owner")
-	ErrAlreadyReviewed       = errors.New("user has already left a review about this book")
-	ErrInvalidRating         = errors.New("rating value is not in the range from 1 to 5")
-	ErrReviewContentTooShort = errors.New("content length must be more than 10 characters")
 )
 
 type Review struct {

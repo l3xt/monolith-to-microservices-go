@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bookshelf/books-service/internal/domain"
 	applogger "bookshelf/books-service/internal/logger"
 	"bookshelf/books-service/internal/transport/http/dto"
 	"context"
@@ -28,14 +27,20 @@ var (
 	ErrEmptyParam         = errors.New("param is empty")
 )
 
-type SystemHandler struct {
-	version string
-	db      domain.Pinger
-	auth    domain.HealthChecker
+type HealthChecker interface {
+	HealthCheck(ctx context.Context) error
 }
 
-func NewSystemHandler(ver string, db domain.Pinger, auth domain.HealthChecker) *SystemHandler {
-	return &SystemHandler{version: ver, db: db, auth: auth}
+type SystemHandler struct {
+	version string
+	db      HealthChecker
+	auth    HealthChecker
+	broker  HealthChecker
+	storage HealthChecker
+}
+
+func NewSystemHandler(ver string, db, auth, broker, storage HealthChecker) *SystemHandler {
+	return &SystemHandler{version: ver, db: db, auth: auth, broker: broker, storage: storage}
 }
 
 // хелпер функции
@@ -121,7 +126,7 @@ func (h *SystemHandler) checkDatabase(ctx context.Context) (time.Duration, error
 	defer cancel()
 
 	startDB := time.Now()
-	if err := h.db.Ping(ctx); err != nil {
+	if err := h.db.HealthCheck(ctx); err != nil {
 		return time.Since(startDB), err
 	}
 	return time.Since(startDB), nil
@@ -139,26 +144,74 @@ func (h *SystemHandler) checkAuthService(ctx context.Context) (time.Duration, er
 	return time.Since(startAuth), nil
 }
 
+func (h *SystemHandler) checkStorage(ctx context.Context) (time.Duration, error) {
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	startStorage := time.Now()
+	if err := h.storage.HealthCheck(ctx); err != nil {
+		return time.Since(startStorage), err
+	}
+	return time.Since(startStorage), nil
+}
+
+func (h *SystemHandler) checkBroker(ctx context.Context) (time.Duration, error) {
+	// Ограничиваем время выполнения
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	startBroker := time.Now()
+	if err := h.broker.HealthCheck(ctx); err != nil {
+		return time.Since(startBroker), err
+	}
+	return time.Since(startBroker), nil
+}
 
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, dto.HealthResponse{
+		Status:    dto.StatusReady,
+		Service:   "books-service",
+		Timestamp: time.Now(),
+	})
+}
+
+func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	log := applogger.FromContext(r.Context())
 
 	generalStatus := dto.StatusReady
 	dbStatus := dto.StatusReady
-	var dbError string
+	storageStatus := dto.StatusReady
+	brokerStatus := dto.StatusReady
+
+	var dbError, storageError, brokerError string
 
 	dbDuration, err := h.checkDatabase(r.Context())
 	if err != nil {
-		log.Error("health check: database ping failed", slog.Any("error", err))
+		log.Error("SystemHandler.Ready: database ping failed", slog.Any("error", err))
 		dbStatus = dto.StatusError
 		dbError = "database connection failed"
 	}
 
-	if dbStatus == dto.StatusError {
+	storageDuration, err := h.checkStorage(r.Context())
+	if err != nil {
+		log.Error("SystemHandler.Ready: storage ping failed", slog.Any("error", err))
+		storageStatus = dto.StatusError
+		storageError = "storage connection failed"
+	}
+
+	brokerDuration, err := h.checkBroker(r.Context())
+	if err != nil {
+		log.Error("SystemHandler.Ready: broker ping failed", slog.Any("error", err))
+		brokerStatus = dto.StatusError
+		brokerError = "broker connection failed"
+	}
+
+	if dbStatus == dto.StatusError || storageStatus == dto.StatusError || brokerStatus == dto.StatusError {
 		generalStatus = dto.StatusError
 	}
 
-	resp := dto.HealthResponse{
+	resp := dto.ReadyResponse{
 		Status:    generalStatus,
 		Service:   "books-service",
 		Version:   h.version,
@@ -169,63 +222,24 @@ func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {
 				Duration: dbDuration.String(),
 				Error:    dbError,
 			},
+			"storage": {
+				Status:   storageStatus,
+				Duration: storageDuration.String(),
+				Error:    storageError,
+			},
+			"broker": {
+				Status:   brokerStatus,
+				Duration: brokerDuration.String(),
+				Error:    brokerError,
+			},
 		},
 	}
 
 	statusCode := http.StatusOK
-	if dbStatus != dto.StatusReady {
+	if generalStatus != dto.StatusReady {
 		statusCode = http.StatusServiceUnavailable
 	}
 
 	writeJSON(w, statusCode, resp)
 }
 
-func (h *SystemHandler) Ready(w http.ResponseWriter, r *http.Request) {
-	log := applogger.FromContext(r.Context())
-
-	isReady := true
-	dbStatus := dto.StatusReady
-	authStatus := dto.StatusReady
-	var dbError, authError string
-
-	dbDuration, err := h.checkDatabase(r.Context())
-	if err != nil {
-		log.Error("readiness check: database ping failed", slog.Any("error", err))
-		dbStatus = dto.StatusError
-		dbError = "database connection failed"
-		isReady = false
-	}
-
-	authDuration, err := h.checkAuthService(r.Context())
-	if err != nil {
-		log.Error("readiness check: auth service failed", slog.Any("error", err))
-		authStatus = dto.StatusError
-		authError = "authentication service failed"
-		isReady = false
-	}
-
-	resp := dto.ReadyResponse{
-		Ready:     isReady,
-		Service:   "books-service",
-		Timestamp: time.Now(),
-		Checks: map[string]dto.Check{
-			"database": {
-				Status:   dbStatus,
-				Duration: dbDuration.String(),
-				Error:    dbError,
-			},
-			"authentication": {
-				Status:   authStatus,
-				Duration: authDuration.String(),
-				Error:    authError,
-			},
-		},
-	}
-
-	statusCode := http.StatusOK
-	if !isReady {
-		statusCode = http.StatusServiceUnavailable
-	}
-
-	writeJSON(w, statusCode, resp)
-}

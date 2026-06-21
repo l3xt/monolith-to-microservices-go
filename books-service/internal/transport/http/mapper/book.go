@@ -6,7 +6,7 @@ import (
 )
 
 func ToBookResponse(b *domain.Book) *dto.BookResponse {
-	return &dto.BookResponse{
+	resp := &dto.BookResponse{
 		ID:            b.ID,
 		Title:         b.Title,
 		Author:        b.Author,
@@ -18,5 +18,16 @@ func ToBookResponse(b *domain.Book) *dto.BookResponse {
 		UserID:        b.UserID,
 		CreatedAt:     b.CreatedAt,
 		UpdatedAt:     b.UpdatedAt,
+		CoverStatus:   domain.CoverStatusNone,
 	}
+
+	if b.Cover != nil {
+		if b.Cover.Status != "" {
+			resp.CoverStatus = b.Cover.Status
+		}
+		resp.CoverURL = b.Cover.CoverURL
+		resp.ThumbURL = b.Cover.ThumbURL
+	}
+
+	return resp
 }

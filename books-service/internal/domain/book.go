@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,17 +9,6 @@ import (
 const (
 	DefaultBookLimit = 100
 	DefaultBookSort  = "title"
-)
-
-var (
-	ErrInvalidInputValue      = errors.New("invalid input value")
-	ErrInvalidBookFilterValue = errors.New("invalid book filter value")
-	ErrInvalidSortValue       = errors.New("invalid sort value in filter object")
-	ErrInvalidOrderValue      = errors.New("invalid order value in filter object")
-	ErrBookNotFound           = errors.New("book not found")
-	ErrBookTitleEmpty         = errors.New("empty book title")
-	ErrBookAuthorEmpty        = errors.New("empty book author")
-	ErrNotBookOwner           = errors.New("not book owner")
 )
 
 // БИЗНЕС МОДЕЛИ
@@ -62,15 +49,6 @@ type UpdateBookInput struct {
 	Description   *string
 	ISBN          *string
 	PublishedYear *int32
-}
-
-type BookRepository interface {
-	Create(ctx context.Context, book *Book) error
-	GetByID(ctx context.Context, id uuid.UUID) (*Book, error)
-	List(ctx context.Context, filter *BookFilter) ([]Book, int, error)
-	Update(ctx context.Context, book *Book) error
-	UpdateCover(ctx context.Context, bookID string, coverURL, thumbURL string, status CoverStatus) error
-	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 func (f *BookFilter) Validate() error {

@@ -55,8 +55,8 @@ func NewBookDB(b *domain.Book) *BookDB {
 	if b.Cover != nil {
 		status := string(b.Cover.Status)
 		coverStatus = &status
-		coverURL = &b.Cover.CoverURL
-		thumbURL = &b.Cover.ThumbURL
+		coverURL = b.Cover.CoverURL
+		thumbURL = b.Cover.ThumbURL
 	}
 
 	return &BookDB{
@@ -78,6 +78,8 @@ func NewBookDB(b *domain.Book) *BookDB {
 }
 
 func (b *BookDB) ToDomain() *domain.Book {
+	coverStatus := FromNull(b.CoverStatus)
+
 	return &domain.Book{
 		ID:            b.ID,
 		Title:         b.Title,
@@ -87,9 +89,15 @@ func (b *BookDB) ToDomain() *domain.Book {
 		PublishedYear: FromNull(b.PublishedYear),
 		AverageRating: b.AverageRating,
 		ReviewsCount:  b.ReviewsCount,
-		UserID:        b.UserID,
-		CreatedAt:     b.CreatedAt,
-		UpdatedAt:     b.UpdatedAt,
+		Cover: &domain.Cover{
+			BookID:   b.ID,
+			Status:   domain.CoverStatus(*coverStatus),
+			CoverURL: FromNull(b.CoverURL),
+			ThumbURL: FromNull(b.ThumbnailURL),
+		},
+		UserID:    b.UserID,
+		CreatedAt: b.CreatedAt,
+		UpdatedAt: b.UpdatedAt,
 	}
 }
 

@@ -23,13 +23,13 @@ type ReviewListResponse struct {
 }
 
 type CreateReviewRequest struct {
-	Title   *string `json:"title"`
+	Title   *string `json:"title,omitempty"`
 	Content string  `json:"content"`
 	Rating  int     `json:"rating"`
 }
 
 type UpdateReviewRequest struct {
-	Title   *string `json:"title"`
-	Content *string `json:"content"`
-	Rating  *int    `json:"rating"`
+	Title   *string `json:"title,omitempty"`
+	Content *string `json:"content,omitempty"`
+	Rating  *int    `json:"rating,omitempty"`
 }

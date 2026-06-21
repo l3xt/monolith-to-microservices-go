@@ -18,10 +18,10 @@ var (
 
 type ReviewService struct {
 	reviewRepo domain.ReviewRepository
-	bookRepo   domain.BookRepository
+	bookRepo   BookRepository
 }
 
-func NewReviewService(b domain.BookRepository, r domain.ReviewRepository) *ReviewService {
+func NewReviewService(b BookRepository, r domain.ReviewRepository) *ReviewService {
 	return &ReviewService{
 		bookRepo:   b,
 		reviewRepo: r,

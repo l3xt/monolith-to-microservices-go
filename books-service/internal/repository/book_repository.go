@@ -290,7 +290,7 @@ func (r *BookRepository) Update(ctx context.Context, book *domain.Book) error {
 	return nil
 }
 
-func (r *BookRepository) UpdateCover(ctx context.Context, bookID string, coverURL, thumbURL string, status domain.CoverStatus) error {
+func (r *BookRepository) UpdateCover(ctx context.Context, bookID uuid.UUID, status domain.CoverStatus, coverURL, thumbURL *string) error {
 	const query = `
 		UPDATE books
 		SET cover_status = $1, cover_url = $2, thumbnail_url = $3

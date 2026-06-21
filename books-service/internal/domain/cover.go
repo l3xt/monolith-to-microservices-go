@@ -2,20 +2,12 @@ package domain
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type CoverStatus string
-
-var (
-	ErrCoverNotFound     = errors.New("cover not found")
-	ErrInvalidCoverFile  = errors.New("invalid cover file")
-	ErrCoverExceededSize = errors.New("cover exceeded max size")
-	ErrInvalidCoverType  = errors.New("invalid cover type")
-)
 
 const (
 	CoverStatusNone       CoverStatus = "none"
@@ -31,8 +23,8 @@ type Cover struct {
 	OriginalPath *string
 	CoverPath    *string
 	ThumbPath    *string
-	CoverURL     string
-	ThumbURL     string
+	CoverURL     *string
+	ThumbURL     *string
 	Error        *string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

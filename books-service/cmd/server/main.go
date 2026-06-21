@@ -104,7 +104,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	bookHandler := handler.NewBookHandler(bookService)
 	coverHandler := handler.NewCoverHandler(coverService)
 	reviewHandler := handler.NewReviewHandler(reviewService)
-	systemHandler := handler.NewSystemHandler(cfg.Version, db, authClient)
+	systemHandler := handler.NewSystemHandler(cfg.Version, db, authClient, rabbitMQClient, imageStorage)
 
 	router := newRouter(bookHandler, coverHandler, reviewHandler, systemHandler, authClient)
 
@@ -178,6 +178,9 @@ func newRouter(bookH *handler.BookHandler, coverH *handler.CoverHandler, reviewH
 		r.Get("/books/{bookId}/reviews", reviewH.ListBookReviews)
 		r.Get("/reviews/{reviewId}", reviewH.GetReview)
 
+		r.Get("/books/{bookId}/cover", coverH.GetBookCover)
+		r.Get("/books/{bookId}/cover/status", coverH.GetBookCoverStatus)
+
 		// Защищенные
 		r.Group(func(r chi.Router) {
 			r.Use(handler.AuthMiddleware(tv))
@@ -191,6 +194,7 @@ func newRouter(bookH *handler.BookHandler, coverH *handler.CoverHandler, reviewH
 			r.Delete("/reviews/{reviewId}", reviewH.DeleteReview)
 
 			r.Post("/books/{bookId}/cover", coverH.UploadBookCover)
+			r.Delete("/books/{bookId}/cover", coverH.DeleteBookCover)
 		})
 	})
 

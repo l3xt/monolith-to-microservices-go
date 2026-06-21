@@ -101,6 +101,9 @@ func (r *CoverRepository) DeleteByBookID(ctx context.Context, bookID uuid.UUID) 
 
 	_, err := r.db.Pool.Exec(ctx, query, bookID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("CoverRepository.DeleteByBookID: %w", domain.ErrCoverNotFound)
+		}
 		return fmt.Errorf("CoverRepository.DeleteByBookID: %w", err)
 	}
 

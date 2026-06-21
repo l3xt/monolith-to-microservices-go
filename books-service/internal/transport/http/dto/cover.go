@@ -24,10 +24,10 @@ type CoverResponse struct {
 
 // Детальный статус
 type CoverStatusResponse struct {
-	CoverID     string     `json:"cover_id"`
-	CoverURL    *string    `json:"cover_url,omitempty"`
-	ThumbURL    *string    `json:"thumb_url,omitempty"`
-	Error       *string    `json:"error,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	Status      domain.CoverStatus `json:"status"`
+	CoverURL    *string            `json:"url,omitempty"`
+	ThumbURL    *string            `json:"thumbnail_url,omitempty"`
+	Error       *string            `json:"error,omitempty"`
+	CreatedAt   time.Time          `json:"started_at"`
+	CompletedAt *time.Time         `json:"completed_at,omitempty"`
 }

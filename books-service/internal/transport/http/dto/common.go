@@ -34,7 +34,7 @@ type ErrorDetail struct {
 }
 
 // Health
-type HealthResponse struct {
+type ReadyResponse struct {
 	Status    ReadyStatus      `json:"status"`
 	Service   string           `json:"service"`
 	Version   string           `json:"version"`
@@ -43,10 +43,9 @@ type HealthResponse struct {
 }
 
 // Ready
-type ReadyResponse struct {
-	Ready     bool             `json:"ready"`
+type HealthResponse struct {
+	Status    ReadyStatus      `json:"status"`
 	Service   string           `json:"service"`
-	Checks    map[string]Check `json:"checks"`
 	Timestamp time.Time        `json:"timestamp"`
 }
 
