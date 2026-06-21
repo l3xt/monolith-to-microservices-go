@@ -4,4 +4,5 @@ use (
 	./books-service
 	./users-service
 	./pkg
+	./worker-service
 )

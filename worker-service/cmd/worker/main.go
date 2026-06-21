@@ -16,6 +16,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -77,9 +80,6 @@ func run(ctx context.Context, log *slog.Logger) error {
 		return fmt.Errorf("create consumer: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	bookRepo := repository.NewBookRepository(db)
 	coverRepo := repository.NewCoverRepository(db)
 
@@ -92,13 +92,41 @@ func run(ctx context.Context, log *slog.Logger) error {
 	// Регистрируем обработчик
 	consumer.RegisterHandler(cfg.Broker.QueueName, imageHandler.HandleImageCompress)
 
+	// Создаем локальный контекст для Graceful Shutdown
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // Страховка при выходе по ошибке
+
 	// Запускаем consumer
 	if err := consumer.Start(ctx); err != nil {
-		log.Error("consumer start", slog.Any("error", err))
+		return fmt.Errorf("consumer start: %w", err)
 	}
 	log.Info("consumer started")
 
-	// Блокируем main goroutine
-	<-ctx.Done()
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-shutdown
+	log.Info("stopping the server", slog.Any("signal", sig))
+
+	// Отменяем контекст. Это прервет select внутри c.consume()
+	cancel()
+
+	// Ждем, пока доработают текущие запущенные задачи (с таймаутом)
+	done := make(chan struct{})
+	go func() {
+		consumer.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Info("consumer gracefully stopped")
+	case <-time.After(10 * time.Second):
+		// Если задачи зависли, мы логируем это и идем дальше
+		log.Warn("consumer shutdown timeout, forced termination")
+	}
+
+	log.Info("server was successfully stopped")
 	return nil
+	// После return сработают defer rabbitMQClient.Close() и defer db.Close()
 }

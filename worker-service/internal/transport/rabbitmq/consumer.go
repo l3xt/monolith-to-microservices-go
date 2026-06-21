@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	applogger "bookshelf/worker-service/internal/logger"
 
@@ -17,6 +18,7 @@ type Consumer struct {
 	client        *rabbitmq.RabbitMQClient
 	handlers      map[string]HandlerFunc
 	prefetchCount int
+	wg            sync.WaitGroup
 }
 
 func NewConsumer(client *rabbitmq.RabbitMQClient) (*Consumer, error) {
@@ -45,6 +47,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 			return fmt.Errorf("rabbitmq.Consumer.Start: consume queue: %w", err)
 		}
 
+		c.wg.Add(1)
 		go c.consume(ctx, queue, handler, msgs)
 	}
 
@@ -52,12 +55,13 @@ func (c *Consumer) Start(ctx context.Context) error {
 }
 
 func (c *Consumer) consume(ctx context.Context, queue string, handler HandlerFunc, msgs <-chan amqp.Delivery) {
+	defer c.wg.Done()
 	log := applogger.FromContext(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Warn("context cancelled", slog.String("queue", queue))
+			log.Info("context cancelled, stopping consumer", slog.String("queue", queue))
 			return
 		case msg, ok := <-msgs:
 			if !ok {
@@ -87,6 +91,6 @@ func (c *Consumer) consume(ctx context.Context, queue string, handler HandlerFun
 	}
 }
 
-func (c *Consumer) Close() error {
-	return c.Close()
+func (c *Consumer) Wait() {
+	c.wg.Wait()
 }
