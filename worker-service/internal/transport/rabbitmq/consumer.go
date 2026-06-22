@@ -3,10 +3,12 @@ package rabbitmq
 import (
 	"bookshelf/pkg/rabbitmq"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
 
+	"bookshelf/worker-service/internal/apperror"
 	applogger "bookshelf/worker-service/internal/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -74,18 +76,16 @@ func (c *Consumer) consume(ctx context.Context, queue string, handler HandlerFun
 				log.Info("message processed successfully", slog.String("queue", queue))
 				msg.Ack(false)
 			} else {
-				log.Error("error processing message, discarding", slog.Any("error", err))
-				msg.Nack(false, false)
-				// var fatalErr *domain.FatalError
-				// if errors.As(err, &fatalErr) || errors.Is(err, domain.ErrInvalidFormat) || errors.Is(err, domain.ErrImageTooLarge) {
-				// 	// Постоянная ошибка - отбрасываем сообщение
-				// 	log.Error("permanent error processing message, discarding", slog.Any("error", err))
-				// 	msg.Nack(false, false)
-				// } else {
-				// 	// Временная ошибка - возвращаем в очередь
-				// 	log.Error("temporary error processing message, requeuing", slog.Any("error", err))
-				// 	msg.Nack(false, true)
-				// }
+				var retryable *apperror.RetryableError
+				if errors.As(err, &retryable) {
+					// Ошибка временная, возвращаем в очередь
+					log.Warn("temporary error while processing message", slog.Any("error", err))
+					msg.Nack(false, true)
+				} else {
+					// Ошибка постоянная, удаляем (DLQ в будущем)
+					log.Warn("permanent error while processing message", slog.Any("error", err))
+					msg.Nack(false, false)
+				}
 			}
 		}
 	}

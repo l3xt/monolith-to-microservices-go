@@ -121,8 +121,8 @@ func run(ctx context.Context, log *slog.Logger) error {
 	select {
 	case <-done:
 		log.Info("consumer gracefully stopped")
-	case <-time.After(10 * time.Second):
-		// Если задачи зависли, мы логируем это и идем дальше
+	case <-time.After(30 * time.Second):
+		// Если задачи зависли, мы логируем это и завершаем работу
 		log.Warn("consumer shutdown timeout, forced termination")
 	}
 

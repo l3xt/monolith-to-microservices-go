@@ -2,6 +2,7 @@ package service
 
 import (
 	"bookshelf/pkg/utils"
+	"bookshelf/worker-service/internal/apperror"
 	"bookshelf/worker-service/internal/domain"
 	"bytes"
 	"context"
@@ -52,12 +53,16 @@ func NewCoverService(bookRepo BookRepository, coverRepo CoverRepository, storage
 func (s *CoverService) ProcessBookCover(ctx context.Context, bookID, coverID uuid.UUID, imagePath string) (err error) {
 	defer func() {
 		if err != nil {
-			errMsg := err.Error()
-			// Используем context.WithoutCancel(ctx), чтобы запрос в БД гарантированно выполнился,
-			// даже если оригинальный контекст был отменен (например, по таймауту).
+			// Оборачиваем ошибку, если она является временной
+			if errors.Is(err, domain.ErrServiceNotResponding) {
+				err = apperror.NewRetryable(err)
+			}
+
+			// Используем context.WithoutCancel(ctx), чтобы запрос в БД гарантированно выполнился, даже если оригинальный контекст был отменен.
+			var errMsg = err.Error()
 			safeCtx := context.WithoutCancel(ctx)
-			_ = s.coverRepo.UpdateStatus(safeCtx, coverID, domain.CoverStatusFailed, nil, nil, &errMsg)
-			_ = s.bookRepo.UpdateCover(safeCtx, bookID, nil, nil, domain.CoverStatusFailed)
+			s.coverRepo.UpdateStatus(safeCtx, coverID, domain.CoverStatusFailed, nil, nil, &errMsg)
+			s.bookRepo.UpdateCover(safeCtx, bookID, nil, nil, domain.CoverStatusFailed)
 		}
 	}()
 

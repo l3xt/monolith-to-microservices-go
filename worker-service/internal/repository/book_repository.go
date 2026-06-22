@@ -39,8 +39,11 @@ func (r *BookRepository) UpdateCover(ctx context.Context, bookID uuid.UUID, cove
 	)
 
 	if err != nil {
+		if r.db.IsRetryable(err) {
+			err = fmt.Errorf("%w: %w", domain.ErrServiceNotResponding, err)
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.ErrBookNotFound
+			err = domain.ErrBookNotFound
 		}
 		return fmt.Errorf("BookRepository.UpdateCover: %w", err)
 	}

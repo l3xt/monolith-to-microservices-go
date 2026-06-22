@@ -36,6 +36,9 @@ func (r *CoverRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status
 
 	_, err := r.db.Pool.Exec(ctx, query, status, coverPath, thumbPath, errorMsg, completedAt, id)
 	if err != nil {
+		if r.db.IsRetryable(err) {
+			err = fmt.Errorf("%w: %w", domain.ErrServiceNotResponding, err)
+		}
 		return fmt.Errorf("CoverRepository.UpdateStatus: %w", err)
 	}
 

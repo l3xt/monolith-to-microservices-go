@@ -2,9 +2,12 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -70,4 +73,12 @@ func (db *PostgresDB) Ping(ctx context.Context) error {
 
 func (db *PostgresDB) Close() {
 	db.Pool.Close()
+}
+
+func (db *PostgresDB) IsRetryable(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && (strings.HasPrefix(pgErr.Code, "08") || strings.HasPrefix(pgErr.Code, "40")) {
+		return true
+	}
+	return false
 }

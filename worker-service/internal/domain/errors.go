@@ -2,30 +2,19 @@ package domain
 
 import "errors"
 
-// Глобальные бизнес-ошибки, которые считаются "постоянными" (нет смысла повторять)
+// Бизнес ошибки
 var (
+	// Книги
+	ErrBookNotFound = errors.New("book not found")
+
+	// Обложки
+	ErrCoverNotFound     = errors.New("cover not found")
+	ErrInvalidCoverFile  = errors.New("invalid cover file")
+	ErrCoverExceededSize = errors.New("cover exceeded max size")
+	ErrInvalidCoverType  = errors.New("invalid cover type")
+
+	// Остальное
 	ErrInvalidFormat = errors.New("invalid image format")
 	ErrImageTooLarge = errors.New("image is too large")
+	ErrServiceNotResponding = errors.New("service is not responding")
 )
-
-// FatalError - кастомный тип ошибки-обертки для любых непредвиденных фатальных ошибок
-type FatalError struct {
-	Err error
-}
-
-func (e *FatalError) Error() string {
-	return e.Err.Error()
-}
-
-// Unwrap позволяет использовать errors.Is и errors.As для вложенной ошибки
-func (e *FatalError) Unwrap() error {
-	return e.Err
-}
-
-// NewFatalError оборачивает ошибку, чтобы консьюмер понял, что ее не нужно возвращать в очередь
-func NewFatalError(err error) error {
-	if err == nil {
-		return nil
-	}
-	return &FatalError{Err: err}
-}

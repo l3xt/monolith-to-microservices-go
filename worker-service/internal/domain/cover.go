@@ -2,17 +2,9 @@ package domain
 
 import (
 	"context"
-	"errors"
 )
 
 type CoverStatus string
-
-var (
-	ErrCoverNotFound     = errors.New("cover not found")
-	ErrInvalidCoverFile  = errors.New("invalid cover file")
-	ErrCoverExceededSize = errors.New("cover exceeded max size")
-	ErrInvalidCoverType  = errors.New("invalid cover type")
-)
 
 // Размеры обложки
 const (
