@@ -35,7 +35,7 @@ func (c *AuthClient) VerifyToken(ctx context.Context, req *dto.TokenRequest) (*d
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
+		return nil, fmt.Errorf("AuthClient.VerifyToken: %w: %w", domain.ErrAuthServiceUnavailable, err)
 	}
 	return &resp, nil
 }
@@ -54,7 +54,7 @@ func (c *AuthClient) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) ([]dto.
 			return nil, ctx.Err()
 		}
 		// Оборачиваем в нашу доменную ошибку
-		return nil, fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
+		return nil, fmt.Errorf("AuthClient.GetUsersByIDs: %w: %w", domain.ErrAuthServiceUnavailable, err)
 	}
 	return resp.Users, nil
 }
@@ -67,7 +67,7 @@ func (c *AuthClient) HealthCheck(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("%w: %v", domain.ErrAuthServiceUnavailable, err)
+		return fmt.Errorf("AuthClient.HealthCheck: %w: %w", domain.ErrAuthServiceUnavailable, err)
 	}
 	return nil
 }

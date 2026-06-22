@@ -38,6 +38,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Пробрасываем логгер в контекст
+	ctx = applogger.WithContext(ctx, logger)
+
 	if err := run(ctx, logger); err != nil {
 		logger.Error("failed to start books service", slog.Any("error", err))
 		os.Exit(1)
