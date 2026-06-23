@@ -76,6 +76,12 @@ func (c *Consumer) consume(ctx context.Context, queue string, handler HandlerFun
 				log.Info("message processed successfully", slog.String("queue", queue))
 				msg.Ack(false)
 			} else {
+				if errors.Is(err, context.Canceled) {
+					log.Warn("processing interrupted by shutdown, requeuing message", slog.String("queue", queue))
+					msg.Nack(false, true)	// Возврат
+					return
+				}
+
 				var retryable *apperror.RetryableError
 				if errors.As(err, &retryable) {
 					// Ошибка временная, возвращаем в очередь
